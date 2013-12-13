@@ -106,7 +106,7 @@ public class ATermCommands {
     return new TAFTermReader(factory).parseFromFile(filename);
   }
   
-  public static IStrategoTerm atermFromString(String s) throws IOException {
+  public static IStrategoTerm atermFromString(String s) {
     return new TAFTermReader(factory).parseFromString(s);
   }
 
@@ -286,7 +286,7 @@ public class ATermCommands {
     return result;
   }
   
-  public static List<IStrategoTerm> registerSemanticProvider(Collection<IStrategoTerm> editorServices, Path jarfile) throws IOException {
+  public static List<IStrategoTerm> registerSemanticProvider(Collection<IStrategoTerm> editorServices, Path jarfile) {
     List<IStrategoTerm> newServices = new ArrayList<IStrategoTerm>(editorServices);
 
     if (jarfile == null)
