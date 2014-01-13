@@ -20,6 +20,7 @@ import org.spoofax.interpreter.terms.ITermFactory;
 import org.spoofax.jsglr.client.InvalidParseTableException;
 import org.spoofax.jsglr.client.imploder.IToken;
 import org.spoofax.jsglr.client.imploder.ImploderAttachment;
+import org.spoofax.jsglr.client.imploder.ImploderOriginTermFactory;
 import org.spoofax.jsglr.client.imploder.Token;
 import org.spoofax.jsglr.io.ParseTableManager;
 import org.spoofax.terms.StrategoListIterator;
@@ -93,9 +94,9 @@ public class ATermCommands {
     }
   }
   
-  // TODO use origin factory
-  public static ITermFactory factory = new ParentTermFactory(new TermFactory().getFactoryWithStorageType(IStrategoTerm.MUTABLE));
-  public static ParseTableManager parseTableManager = new ParseTableManager(factory, false);
+  public static ITermFactory factory = new ImploderOriginTermFactory(new TermFactory().getFactoryWithStorageType(IStrategoTerm.MUTABLE));
+  public static ITermFactory factoryForParser = new ParentTermFactory(new TermFactory().getFactoryWithStorageType(IStrategoTerm.MUTABLE));
+  public static ParseTableManager parseTableManager = new ParseTableManager(factoryForParser, false);
 
   public static IStrategoTerm atermFromFile(String filename) throws IOException {
     IStrategoTerm term = Environment.terms.get(filename);
