@@ -230,6 +230,8 @@ abstract public class CompilationUnit extends PersistableEntity {
     Map<CompilationUnit, Integer> ranks = new HashMap<>();
     
     queue.add(this);
+    ranks.put(this, 0);
+    
     while (!queue.isEmpty()) {
       CompilationUnit mod = queue.remove();
       int rMod = ranks.get(mod);
@@ -265,7 +267,7 @@ abstract public class CompilationUnit extends PersistableEntity {
       public int compare(CompilationUnit m1, CompilationUnit m2) { return ranks.get(m1).compareTo(ranks.get(m2)); }
     }; 
     
-    CompilationUnit[] mods = ranks.entrySet().toArray(new CompilationUnit[ranks.size()]);
+    CompilationUnit[] mods = ranks.keySet().toArray(new CompilationUnit[ranks.size()]);
     Arrays.sort(mods, comparator);
     
     T result = visitor.init();
