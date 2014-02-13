@@ -1,4 +1,4 @@
-package org.sugarj.common.deps;
+package org.sugarj.common.cleardep;
 
 import java.io.IOException;
 import java.io.ObjectInputStream;
@@ -22,17 +22,17 @@ import org.sugarj.common.path.RelativePath;
  * 
  * @author Sebastian Erdweg
  */
-abstract public class Module extends PersistableEntity {
+abstract public class CompilationUnit extends PersistableEntity {
   
-  public Module() { /* for deserialization only */ }
-  public Module(Stamper stamper) {
+  public CompilationUnit() { /* for deserialization only */ }
+  public CompilationUnit(Stamper stamper) {
     super(stamper);
   }
 
   private Map<RelativePath, Integer> sourceArtifacts = new HashMap<>();
   
-  private Map<Module, Integer> moduleDependencies = new HashMap<>();
-  private Set<Module> circularModuleDependencies = new HashSet<>();
+  private Map<CompilationUnit, Integer> moduleDependencies = new HashMap<>();
+  private Set<CompilationUnit> circularModuleDependencies = new HashSet<>();
   
   private Map<RelativePath, Integer> externalFileDependencies = new HashMap<>();
   
@@ -64,11 +64,11 @@ abstract public class Module extends PersistableEntity {
     transitivelyAffectedFiles.put(file, stampOfFile);
   }
   
-  public void addCircularModuleDependency(Module mod) {
+  public void addCircularModuleDependency(CompilationUnit mod) {
     circularModuleDependencies.add(mod);
   }
   
-  public void addModuleDependency(Module mod) throws IOException {
+  public void addModuleDependency(CompilationUnit mod) throws IOException {
     moduleDependencies.put(mod, mod.stamp());
     transitivelyAffectedFiles.putAll(mod.getTransitivelyAffectedFileStamps());
   }
@@ -78,14 +78,14 @@ abstract public class Module extends PersistableEntity {
   // Methods for querying dependencies
   // *********************************
 
-  public boolean dependsOn(Module other) {
+  public boolean dependsOn(CompilationUnit other) {
     return moduleDependencies.containsKey(other) || circularModuleDependencies.contains(other);    
   }
 
-  public boolean dependsOnTransitively(Module other) {
+  public boolean dependsOnTransitively(CompilationUnit other) {
     if (dependsOn(other))
       return true;
-    for (Module mod : moduleDependencies.keySet())
+    for (CompilationUnit mod : moduleDependencies.keySet())
       if (mod.dependsOnTransitively(other))
         return true;
     return false;
@@ -95,11 +95,11 @@ abstract public class Module extends PersistableEntity {
     return sourceArtifacts.keySet();
   }
   
-  public Set<Module> getModuleDependencies() {
+  public Set<CompilationUnit> getModuleDependencies() {
     return moduleDependencies.keySet();
   }
   
-  public Set<Module> getCircularModuleDependencies() {
+  public Set<CompilationUnit> getCircularModuleDependencies() {
     return circularModuleDependencies;
   }
   
@@ -120,7 +120,7 @@ abstract public class Module extends PersistableEntity {
       final Map<Path, Integer> deps = new HashMap<>();
       
       ModuleVisitor<Void> collectAffectedFileStampsVisitor = new ModuleVisitor<Void>() {
-        @Override public Void visit(Module mod) { 
+        @Override public Void visit(CompilationUnit mod) { 
           deps.putAll(generatedFiles); 
           deps.putAll(externalFileDependencies);
           return null;
@@ -139,12 +139,12 @@ abstract public class Module extends PersistableEntity {
   
   public Set<Path> getCircularFileDependencies() throws IOException {
     Set<Path> dependencies = new HashSet<Path>();
-    Set<Module> visited = new HashSet<>();
-    LinkedList<Module> queue = new LinkedList<>();
+    Set<CompilationUnit> visited = new HashSet<>();
+    LinkedList<CompilationUnit> queue = new LinkedList<>();
     queue.add(this);
     
     while (!queue.isEmpty()) {
-      Module res = queue.pop();
+      CompilationUnit res = queue.pop();
       visited.add(res);
       
       for (Path p : res.generatedFiles.keySet())
@@ -154,10 +154,10 @@ abstract public class Module extends PersistableEntity {
         if (!dependencies.contains(p) && FileCommands.exists(p))
           dependencies.add(p);
       
-      for (Module nextDep: res.moduleDependencies.keySet())
+      for (CompilationUnit nextDep: res.moduleDependencies.keySet())
         if (!visited.contains(nextDep) && !queue.contains(nextDep))
           queue.addFirst(nextDep);
-      for (Module nextDep : res.circularModuleDependencies)
+      for (CompilationUnit nextDep : res.circularModuleDependencies)
         if (!visited.contains(nextDep) && !queue.contains(nextDep))
           queue.addFirst(nextDep);
     }
@@ -194,7 +194,7 @@ abstract public class Module extends PersistableEntity {
       if (stamper.stampOf(e.getKey()) != e.getValue())
         return false;
 
-    for (Entry<Module, Integer> e : moduleDependencies.entrySet())
+    for (Entry<CompilationUnit, Integer> e : moduleDependencies.entrySet())
       if (e.getKey().stamp() != e.getValue())
         return false;
     
@@ -205,7 +205,7 @@ abstract public class Module extends PersistableEntity {
   }
 
   private final ModuleVisitor<Boolean> isConsistentVisitor = new ModuleVisitor<Boolean>() {
-    @Override public Boolean visit(Module mod) { return mod.isConsistentShallow(); }
+    @Override public Boolean visit(CompilationUnit mod) { return mod.isConsistentShallow(); }
     @Override public Boolean combine(Boolean t1, Boolean t2) { return t1 && t2; }
     @Override public Boolean init() { return true; }
   }; 
@@ -220,24 +220,24 @@ abstract public class Module extends PersistableEntity {
   // *************************************
 
   public static interface ModuleVisitor<T> {
-    public T visit(Module mod);
+    public T visit(CompilationUnit mod);
     public T combine(T t1, T t2);
     public T init();
   }
 
-  private Map<Module, Integer> computeRanks() {
-    LinkedList<Module> queue = new LinkedList<>();
-    Map<Module, Integer> ranks = new HashMap<>();
+  private Map<CompilationUnit, Integer> computeRanks() {
+    LinkedList<CompilationUnit> queue = new LinkedList<>();
+    Map<CompilationUnit, Integer> ranks = new HashMap<>();
     
     queue.add(this);
     while (!queue.isEmpty()) {
-      Module mod = queue.remove();
+      CompilationUnit mod = queue.remove();
       int rMod = ranks.get(mod);
       
-      Set<Module> deps = new HashSet<>();
+      Set<CompilationUnit> deps = new HashSet<>();
       deps.addAll(mod.getModuleDependencies());
       deps.addAll(mod.getCircularModuleDependencies());
-      for (Module dep : deps) {
+      for (CompilationUnit dep : deps) {
         Integer rDep = ranks.get(dep);
         if (rDep != null)
           ranks.put(dep, Math.min(rDep, rMod));
@@ -259,17 +259,17 @@ abstract public class Module extends PersistableEntity {
    *    then M1 is not reachable from M2 or M1 and M2 are mutually reachable.   
    */
   public <T> T visit(ModuleVisitor<T> visitor) {
-    final Map<Module, Integer> ranks = computeRanks();
+    final Map<CompilationUnit, Integer> ranks = computeRanks();
     
-    Comparator<Module> comparator = new Comparator<Module>() {
-      public int compare(Module m1, Module m2) { return ranks.get(m1).compareTo(ranks.get(m2)); }
+    Comparator<CompilationUnit> comparator = new Comparator<CompilationUnit>() {
+      public int compare(CompilationUnit m1, CompilationUnit m2) { return ranks.get(m1).compareTo(ranks.get(m2)); }
     }; 
     
-    Module[] mods = ranks.entrySet().toArray(new Module[ranks.size()]);
+    CompilationUnit[] mods = ranks.entrySet().toArray(new CompilationUnit[ranks.size()]);
     Arrays.sort(mods, comparator);
     
     T result = visitor.init();
-    for (Module mod : mods) {
+    for (CompilationUnit mod : mods) {
       T newResult = visitor.visit(mod);
       result = visitor.combine(result, newResult);
     }
@@ -285,8 +285,8 @@ abstract public class Module extends PersistableEntity {
   @SuppressWarnings("unchecked")
   protected void readEntity(ObjectInputStream in) throws IOException, ClassNotFoundException {
     sourceArtifacts = (Map<RelativePath, Integer>) in.readObject();
-    moduleDependencies = (Map<Module, Integer>) in.readObject();
-    circularModuleDependencies = (Set<Module>) in.readObject();
+    moduleDependencies = (Map<CompilationUnit, Integer>) in.readObject();
+    circularModuleDependencies = (Set<CompilationUnit>) in.readObject();
     generatedFiles = (Map<Path, Integer>) in.readObject();
     externalFileDependencies = (Map<RelativePath, Integer>) in.readObject();
   }

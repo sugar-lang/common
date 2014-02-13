@@ -1,4 +1,4 @@
-package org.sugarj.common.deps;
+package org.sugarj.common.cleardep;
 
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
