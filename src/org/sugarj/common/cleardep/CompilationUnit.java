@@ -43,6 +43,7 @@ abstract public class CompilationUnit extends PersistableEntity {
    */
   transient private Map<Path, Integer> transitivelyAffectedFiles = new HashMap<>();
 
+  
   // *******************************
   // Methods for adding dependencies
   // *******************************
@@ -174,7 +175,9 @@ abstract public class CompilationUnit extends PersistableEntity {
   
   protected boolean isConsistentWithSourceArtifacts() {
     for (Entry<RelativePath, Integer> e : sourceArtifacts.entrySet())
-      if (!FileCommands.exists(e.getKey()) || e.getValue() != stamper.stampOf(e.getKey()))
+      if (editedSourceArtifacts != null && editedSourceArtifacts.containsKey(e.getKey()) && !editedSourceArtifacts.get(e.getKey()).equals(e.getValue()))
+        return false;
+      else if (!FileCommands.exists(e.getKey()) || e.getValue() != stamper.stampOf(e.getKey()))
         return false;
     return true;
   }
@@ -214,6 +217,16 @@ abstract public class CompilationUnit extends PersistableEntity {
     return visit(isConsistentVisitor);
   }
   
+  private Map<RelativePath, Integer> editedSourceArtifacts = null;
+  public synchronized boolean isConsistent(Map<RelativePath, Integer> editedSourceArtifacts) {
+    this.editedSourceArtifacts = editedSourceArtifacts;
+    try {
+      return visit(isConsistentVisitor);
+    } finally {
+      this.editedSourceArtifacts = null;
+    }
+  }
+  
   
   // *************************************
   // Methods for visiting the module graph
@@ -245,6 +258,7 @@ abstract public class CompilationUnit extends PersistableEntity {
           ranks.put(dep, Math.min(rDep, rMod));
         else {
           rDep = rMod + 1;
+          ranks.put(dep,  rDep);
           if (!queue.contains(dep))
             queue.addFirst(dep);
         }
@@ -278,6 +292,7 @@ abstract public class CompilationUnit extends PersistableEntity {
     
     return result;
   }
+  
   
   // *************************
   // Methods for serialization

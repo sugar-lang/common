@@ -5,7 +5,11 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
+import java.lang.ref.SoftReference;
+import java.util.HashMap;
+import java.util.Map;
 
+import org.sugarj.common.FileCommands;
 import org.sugarj.common.path.Path;
 
 /**
@@ -13,6 +17,8 @@ import org.sugarj.common.path.Path;
  *
  */
 public abstract class PersistableEntity {
+  
+  private final static Map<Path, SoftReference<? extends PersistableEntity>> inMemory = new HashMap<>();
   
   protected Stamper stamper;
   
@@ -45,23 +51,20 @@ public abstract class PersistableEntity {
   final public int stamp() {
     assert isPersisted();
     return persistentStamp;
-    
-//    try {
-//      Path tmp = FileCommands.newTempFile(".dep");
-//      write(tmp);
-//      return stamper.stampOf(tmp);
-//    } catch (IOException e) {
-//      e.printStackTrace();
-//      return null;
-//    }
   }
   
   
   protected abstract void readEntity(ObjectInputStream in) throws IOException, ClassNotFoundException;
   protected abstract void writeEntity(ObjectOutputStream out) throws IOException;
   
-  public static <E extends PersistableEntity> E read(Class<E> clazz, Stamper stamper, Path p) throws IOException, ClassNotFoundException {
-    E entity;
+  final public static <E extends PersistableEntity> E read(Class<E> clazz, Stamper stamper, Path p) throws IOException, ClassNotFoundException {
+    E entity = readFromMemoryCache(clazz, p);
+    if (entity != null && !entity.hasPersistentVersionChanged())
+      return entity;
+
+    if (!FileCommands.exists(p))
+      return null;
+
     try {
       entity = clazz.newInstance();
     } catch (InstantiationException e) {
@@ -92,5 +95,25 @@ public abstract class PersistableEntity {
     out.close();
     
     setPersistentPath(p);
+  }
+  
+  final public static <E extends PersistableEntity> E readFromMemoryCache(Class<E> clazz, Path p) {
+    SoftReference<? extends PersistableEntity> ref;
+    synchronized (PersistableEntity.class) {
+      ref = inMemory.get(p);
+    }
+    if (ref == null)
+      return null;
+    
+    PersistableEntity e = ref.get();
+    if (e != null && clazz.isInstance(e))
+      return clazz.cast(e);
+    return null;
+  }
+  
+  final public void cacheInMemory(Path p) {
+    synchronized (PersistableEntity.class) {
+      inMemory.put(p, new SoftReference<>(this));
+    }
   }
 }

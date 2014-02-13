@@ -27,6 +27,7 @@ public class SourceCodeException extends Exception {
     this.errors = Collections.unmodifiableList(errors);
   }
   
+  @SafeVarargs
   public SourceCodeException(Pair<SourceLocation, String>... errors) {
     this.errors = new ArrayList<Pair<SourceLocation,String>>(errors.length);
     for (Pair<SourceLocation, String> error : errors)
