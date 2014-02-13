@@ -302,18 +302,50 @@ abstract public class CompilationUnit extends PersistableEntity {
   @SuppressWarnings("unchecked")
   protected void readEntity(ObjectInputStream in) throws IOException, ClassNotFoundException {
     sourceArtifacts = (Map<RelativePath, Integer>) in.readObject();
-    moduleDependencies = (Map<CompilationUnit, Integer>) in.readObject();
-    circularModuleDependencies = (Set<CompilationUnit>) in.readObject();
     generatedFiles = (Map<Path, Integer>) in.readObject();
     externalFileDependencies = (Map<RelativePath, Integer>) in.readObject();
+    
+    int moduleDepencyCount = in.readInt();
+    moduleDependencies = new HashMap<>(moduleDepencyCount);
+    for (int i = 0; i < moduleDepencyCount; i++) {
+      String clName = (String) in.readObject();
+      Class<? extends CompilationUnit> cl = (Class<? extends CompilationUnit>) getClass().getClassLoader().loadClass(clName);
+      Path path = (Path) in.readObject();
+      int stamp = in.readInt();
+      CompilationUnit mod = PersistableEntity.read(cl, stamper, path);
+      moduleDependencies.put(mod, stamp);
+    }
+    
+    int circularModuleDependencyCount = in.readInt();
+    circularModuleDependencies = new HashSet<>(circularModuleDependencyCount);
+    for (int i = 0; i < circularModuleDependencyCount; i++) {
+      String clName = (String) in.readObject();
+      Class<? extends CompilationUnit> cl = (Class<? extends CompilationUnit>) getClass().getClassLoader().loadClass(clName);
+      Path path = (Path) in.readObject();
+      CompilationUnit mod = PersistableEntity.read(cl, stamper, path);
+      circularModuleDependencies.add(mod);
+    }
   }
 
   @Override
   protected void writeEntity(ObjectOutputStream out) throws IOException {
     out.writeObject(sourceArtifacts = Collections.unmodifiableMap(sourceArtifacts));
-    out.writeObject(moduleDependencies = Collections.unmodifiableMap(moduleDependencies));
-    out.writeObject(circularModuleDependencies = Collections.unmodifiableSet(circularModuleDependencies));
     out.writeObject(generatedFiles = Collections.unmodifiableMap(generatedFiles));
     out.writeObject(externalFileDependencies = Collections.unmodifiableMap(externalFileDependencies));
+
+    out.writeInt(moduleDependencies.size());
+    for (Entry<CompilationUnit, Integer> e : moduleDependencies.entrySet()) {
+      assert e.getKey().isPersisted() : "Required compilation units must be persisted.";
+      out.writeObject(e.getKey().getClass().getCanonicalName());
+      out.writeObject(e.getKey().persistentPath);
+      out.writeInt(e.getValue());
+    }
+    
+    out.writeInt(circularModuleDependencies.size());
+    for (CompilationUnit mod : circularModuleDependencies) {
+      assert mod.isPersisted() : "Circularly required compilation units must be persisted.";
+      out.writeObject(mod.getClass().getCanonicalName());
+      out.writeObject(mod.persistentPath);
+    }
   }
 }
