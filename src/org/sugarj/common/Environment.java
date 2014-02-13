@@ -12,6 +12,7 @@ import java.util.Map;
 import java.util.WeakHashMap;
 
 import org.spoofax.interpreter.terms.IStrategoTerm;
+import org.sugarj.common.deps.Stamper;
 import org.sugarj.common.path.AbsolutePath;
 import org.sugarj.common.path.Path;
 import org.sugarj.common.path.RelativePath;
@@ -39,6 +40,8 @@ public class Environment implements Serializable {
   private Path root = new AbsolutePath(".");
   
   private Path compileBin = new AbsolutePath(".");
+  
+  private Stamper stamper; 
 
   /**
    * The directory in which to place files at parse time.
@@ -198,5 +201,9 @@ public class Environment implements Serializable {
       includePath.add(compileBin);
 
     this.generateFiles = b;
+  }
+  
+  public Stamper getStamper() {
+    return stamper;
   }
 }

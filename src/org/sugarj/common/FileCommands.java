@@ -383,6 +383,17 @@ public class FileCommands {
     
     return 0;
   }
+  
+  public static int tryFileHash(Path file) {
+    int hash;
+    try {
+      hash = FileCommands.fileHash(file);
+    } catch (IOException e) {
+      e.printStackTrace();
+      hash = -1;
+    }
+    return hash;
+  }
 
   public static boolean isEmptyFile(Path prog) throws IOException {
     FileInputStream in = null;
