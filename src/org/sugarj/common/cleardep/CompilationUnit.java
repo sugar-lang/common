@@ -254,10 +254,12 @@ abstract public class CompilationUnit extends PersistableEntity {
       deps.addAll(mod.getCircularModuleDependencies());
       for (CompilationUnit dep : deps) {
         Integer rDep = ranks.get(dep);
-        if (rDep != null)
+        if (rDep != null) {
           ranks.put(dep, Math.min(rDep, rMod));
+          ranks.put(mod, Math.min(rDep, rMod));
+        }
         else {
-          rDep = rMod + 1;
+          rDep = rMod - 1;
           ranks.put(dep,  rDep);
           if (!queue.contains(dep))
             queue.addFirst(dep);
@@ -270,9 +272,9 @@ abstract public class CompilationUnit extends PersistableEntity {
   
   /**
    * Visits the module graph starting from this module, satisfying the following properties:
-   *  - every module reachable from `this` module is visited exactly once
+   *  - every module transitively imported from `this` module is visited exactly once
    *  - if a module M1 is visited before a module M2,
-   *    then M1 is not reachable from M2 or M1 and M2 are mutually reachable.   
+   *    then M1 is not transitively imported from M2 or M1 and M2 are mutually dependent.   
    */
   public <T> T visit(ModuleVisitor<T> visitor) {
     final Map<CompilationUnit, Integer> ranks = computeRanks();

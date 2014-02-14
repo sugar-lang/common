@@ -116,4 +116,10 @@ public abstract class PersistableEntity {
       inMemory.put(p, new SoftReference<>(this));
     }
   }
+  
+  public String toString() {
+    if (persistentPath != null)
+      return super.toString() + " at " + persistentPath;
+    return super.toString();
+  }
 }
