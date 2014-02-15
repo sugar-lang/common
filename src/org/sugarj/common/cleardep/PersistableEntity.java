@@ -59,6 +59,8 @@ public abstract class PersistableEntity {
   protected abstract void readEntity(ObjectInputStream in) throws IOException, ClassNotFoundException;
   protected abstract void writeEntity(ObjectOutputStream out) throws IOException;
   
+  protected abstract void init();
+  
   final public static <E extends PersistableEntity> E create(Class<E> clazz, Stamper stamper, Path p) throws IOException {
     E entity;
     try {
@@ -68,8 +70,10 @@ public abstract class PersistableEntity {
       entity = null;
     }
     
-    if (entity != null)
+    if (entity != null) {
+      entity.init();
       return entity;
+    }
     
     try {
       entity = clazz.newInstance();
@@ -82,6 +86,7 @@ public abstract class PersistableEntity {
     }
     entity.stamper = stamper;
     entity.persistentPath = p;
+    entity.init();
     return entity;
   }
   

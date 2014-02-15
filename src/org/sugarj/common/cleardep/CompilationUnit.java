@@ -29,20 +29,29 @@ abstract public class CompilationUnit extends PersistableEntity {
 //    super(stamper);
 //  }
 
-  private Map<RelativePath, Integer> sourceArtifacts = new HashMap<>();
+  private Map<RelativePath, Integer> sourceArtifacts;
   
-  private Map<CompilationUnit, Integer> moduleDependencies = new HashMap<>();
-  private Set<CompilationUnit> circularModuleDependencies = new HashSet<>();
+  private Map<CompilationUnit, Integer> moduleDependencies;
+  private Set<CompilationUnit> circularModuleDependencies;
   
-  private Map<RelativePath, Integer> externalFileDependencies = new HashMap<>();
+  private Map<RelativePath, Integer> externalFileDependencies;
   
-  private Map<Path, Integer> generatedFiles = new HashMap<>();
+  private Map<Path, Integer> generatedFiles;
   
   /**
    * Transitive closure (over module dependencies) of required and generated files.
    */
-  transient private Map<Path, Integer> transitivelyAffectedFiles = new HashMap<>();
+  transient private Map<Path, Integer> transitivelyAffectedFiles;
 
+  @Override
+  protected void init() {
+    sourceArtifacts = new HashMap<>();
+    moduleDependencies = new HashMap<>();
+    circularModuleDependencies = new HashSet<>();
+    externalFileDependencies = new HashMap<>();
+    generatedFiles = new HashMap<>();
+    transitivelyAffectedFiles = new HashMap<>();
+  }
   
   // *******************************
   // Methods for adding dependencies
