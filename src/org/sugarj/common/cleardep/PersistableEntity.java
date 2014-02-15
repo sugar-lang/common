@@ -103,13 +103,17 @@ public abstract class PersistableEntity {
       return null;
     }
 
+    entity.stamper = stamper;
+
     ObjectInputStream in = new ObjectInputStream(new FileInputStream(p.getAbsolutePath()));
 
     // TODO read file header
+    try {
+      entity.readEntity(in);
+    } finally {
+      in.close();
+    }
     
-    entity.stamper = stamper;
-    entity.readEntity(in);
-    in.close();
     entity.setPersistentPath(p);
     return entity;
   }
@@ -120,9 +124,11 @@ public abstract class PersistableEntity {
     ObjectOutputStream out = new ObjectOutputStream(new FileOutputStream(p.getAbsolutePath()));
 
     // TODO write file header
-    
-    writeEntity(out);
-    out.close();
+    try {
+      writeEntity(out);
+    } finally {
+      out.close();
+    }
     
     setPersistentPath(p);
   }
