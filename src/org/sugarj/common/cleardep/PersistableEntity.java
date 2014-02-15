@@ -23,29 +23,31 @@ public abstract class PersistableEntity {
   protected Stamper stamper;
   
   public PersistableEntity() { /* for deserialization only */ }
-  public PersistableEntity(Stamper stamper) {
-    this.stamper = stamper;
-  }
+//  public PersistableEntity(Stamper stamper) {
+//    this.stamper = stamper;
+//  }
       
   /**
    * Path and stamp of the disk-stored version of this result.
-   * If the result was not stored yet, both variables are null.
    */
   protected Path persistentPath;
   private int persistentStamp = -1;
+  private boolean isPersisted = false;
 
   final public boolean isPersisted() {
-    return persistentPath != null;
+    return isPersisted;
   }
   
   public boolean hasPersistentVersionChanged() {
-    return persistentPath != null && 
+    return isPersisted &&
+           persistentPath != null && 
            persistentStamp != stamper.stampOf(persistentPath);
   }
   
   final protected void setPersistentPath(Path dep) throws IOException {
     persistentPath = dep;
     persistentStamp = stamper.stampOf(dep);
+    isPersisted = true;
   }
   
   final public int stamp() {
@@ -56,6 +58,32 @@ public abstract class PersistableEntity {
   
   protected abstract void readEntity(ObjectInputStream in) throws IOException, ClassNotFoundException;
   protected abstract void writeEntity(ObjectOutputStream out) throws IOException;
+  
+  final public static <E extends PersistableEntity> E create(Class<E> clazz, Stamper stamper, Path p) throws IOException {
+    E entity;
+    try {
+      entity = read(clazz, stamper, p);
+    } catch (ClassNotFoundException e) {
+      e.printStackTrace();
+      entity = null;
+    }
+    
+    if (entity != null)
+      return entity;
+    
+    try {
+      entity = clazz.newInstance();
+    } catch (InstantiationException e) {
+      e.printStackTrace();
+      return null;
+    } catch (IllegalAccessException e) {
+      e.printStackTrace();
+      return null;
+    }
+    entity.stamper = stamper;
+    entity.persistentPath = p;
+    return entity;
+  }
   
   final public static <E extends PersistableEntity> E read(Class<E> clazz, Stamper stamper, Path p) throws IOException, ClassNotFoundException {
     E entity = readFromMemoryCache(clazz, p);
@@ -87,6 +115,8 @@ public abstract class PersistableEntity {
   }
   
   final public void write(Path p) throws IOException {
+    cacheInMemory(p);
+    
     ObjectOutputStream out = new ObjectOutputStream(new FileOutputStream(p.getAbsolutePath()));
 
     // TODO write file header
@@ -111,7 +141,7 @@ public abstract class PersistableEntity {
     return null;
   }
   
-  final public void cacheInMemory(Path p) {
+  final private void cacheInMemory(Path p) {
     synchronized (PersistableEntity.class) {
       inMemory.put(p, new SoftReference<>(this));
     }

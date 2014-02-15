@@ -25,9 +25,9 @@ import org.sugarj.common.path.RelativePath;
 abstract public class CompilationUnit extends PersistableEntity {
   
   public CompilationUnit() { /* for deserialization only */ }
-  public CompilationUnit(Stamper stamper) {
-    super(stamper);
-  }
+//  public CompilationUnit(Stamper stamper) {
+//    super(stamper);
+//  }
 
   private Map<RelativePath, Integer> sourceArtifacts = new HashMap<>();
   
@@ -345,7 +345,7 @@ abstract public class CompilationUnit extends PersistableEntity {
     
     out.writeInt(circularModuleDependencies.size());
     for (CompilationUnit mod : circularModuleDependencies) {
-      assert mod.isPersisted() : "Circularly required compilation units must be persisted.";
+//      assert mod.isPersisted() : "Circularly required compilation units must be persisted.";
       out.writeObject(mod.getClass().getCanonicalName());
       out.writeObject(mod.persistentPath);
     }
