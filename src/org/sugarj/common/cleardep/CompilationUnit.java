@@ -30,6 +30,7 @@ abstract public class CompilationUnit extends PersistableEntity {
 //  }
 
   private Map<RelativePath, Integer> sourceArtifacts;
+  private Map<RelativePath, Integer> editedSourceArtifacts = null;
   
   private Map<CompilationUnit, Integer> moduleDependencies;
   private Set<CompilationUnit> circularModuleDependencies;
@@ -46,6 +47,7 @@ abstract public class CompilationUnit extends PersistableEntity {
   @Override
   protected void init() {
     sourceArtifacts = new HashMap<>();
+    editedSourceArtifacts = new HashMap<>();
     moduleDependencies = new HashMap<>();
     circularModuleDependencies = new HashSet<>();
     externalFileDependencies = new HashMap<>();
@@ -61,7 +63,11 @@ abstract public class CompilationUnit extends PersistableEntity {
   public void addSourceArtifact(RelativePath file, int stampOfFile) {
     sourceArtifacts.put(file, stampOfFile);
   }
-  
+
+  public void addEditedSourceArtifact(RelativePath originalSourceFile, int stampOfEditedSource) {
+    editedSourceArtifacts.put(originalSourceFile, stampOfEditedSource);
+  }
+
   public void addExternalFileDependency(RelativePath file) { addExternalFileDependency(file, stamper.stampOf(file)); }
   public void addExternalFileDependency(RelativePath file, int stampOfFile) {
     externalFileDependencies.put(file, stampOfFile);
@@ -103,6 +109,10 @@ abstract public class CompilationUnit extends PersistableEntity {
 
   public Set<RelativePath> getSourceArtifacts() {
     return sourceArtifacts.keySet();
+  }
+  
+  public Set<RelativePath> getEditedSourceArtifacts() {
+    return editedSourceArtifacts.keySet();
   }
   
   public Set<CompilationUnit> getModuleDependencies() {
@@ -183,11 +193,21 @@ abstract public class CompilationUnit extends PersistableEntity {
   protected abstract boolean isConsistentExtend();
   
   protected boolean isConsistentWithSourceArtifacts() {
-    for (Entry<RelativePath, Integer> e : sourceArtifacts.entrySet())
-      if (editedSourceArtifacts != null && editedSourceArtifacts.containsKey(e.getKey()) && !editedSourceArtifacts.get(e.getKey()).equals(e.getValue()))
+    boolean hasEdits = conistenceCheckEditedSourceArtifacts == null;
+    if (!hasEdits && editedSourceArtifacts.size() != 0)
+      return false;
+    for (Entry<RelativePath, Integer> e : editedSourceArtifacts.entrySet()) {
+      Integer other = conistenceCheckEditedSourceArtifacts.get(e.getKey());
+      if (other == null || !other.equals(e.getValue()))
         return false;
+    }
+    
+    for (Entry<RelativePath, Integer> e : sourceArtifacts.entrySet())
+      if (hasEdits && conistenceCheckEditedSourceArtifacts.containsKey(e.getKey()))
+        continue;
       else if (!FileCommands.exists(e.getKey()) || e.getValue() != stamper.stampOf(e.getKey()))
         return false;
+
     return true;
   }
 
@@ -226,13 +246,13 @@ abstract public class CompilationUnit extends PersistableEntity {
     return visit(isConsistentVisitor);
   }
   
-  private Map<RelativePath, Integer> editedSourceArtifacts = null;
+  private Map<? extends Path, Integer> conistenceCheckEditedSourceArtifacts;
   public synchronized boolean isConsistent(Map<RelativePath, Integer> editedSourceArtifacts) {
-    this.editedSourceArtifacts = editedSourceArtifacts;
+    this.conistenceCheckEditedSourceArtifacts = editedSourceArtifacts;
     try {
       return visit(isConsistentVisitor);
     } finally {
-      this.editedSourceArtifacts = null;
+      this.conistenceCheckEditedSourceArtifacts = null;
     }
   }
   
@@ -313,6 +333,7 @@ abstract public class CompilationUnit extends PersistableEntity {
   @SuppressWarnings("unchecked")
   protected void readEntity(ObjectInputStream in) throws IOException, ClassNotFoundException {
     sourceArtifacts = (Map<RelativePath, Integer>) in.readObject();
+    editedSourceArtifacts = (Map<RelativePath, Integer>) in.readObject();
     generatedFiles = (Map<Path, Integer>) in.readObject();
     externalFileDependencies = (Map<RelativePath, Integer>) in.readObject();
     
@@ -341,6 +362,7 @@ abstract public class CompilationUnit extends PersistableEntity {
   @Override
   protected void writeEntity(ObjectOutputStream out) throws IOException {
     out.writeObject(sourceArtifacts = Collections.unmodifiableMap(sourceArtifacts));
+    out.writeObject(editedSourceArtifacts = Collections.unmodifiableMap(editedSourceArtifacts));
     out.writeObject(generatedFiles = Collections.unmodifiableMap(generatedFiles));
     out.writeObject(externalFileDependencies = Collections.unmodifiableMap(externalFileDependencies));
 
