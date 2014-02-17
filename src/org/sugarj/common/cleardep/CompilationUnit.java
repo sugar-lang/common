@@ -47,11 +47,19 @@ abstract public class CompilationUnit extends PersistableEntity {
       e = null;
     }
     
-    if (e != null)
+    if (e != null) {
+      e.init();
+      for (RelativePath sourceFile : sourceFiles) {
+        Integer editedStamp = editedSourceFiles.get(sourceFile);
+        if (editedStamp != null)
+          e.addSourceArtifact(sourceFile, editedStamp);
+        else
+          e.addSourceArtifact(sourceFile);
+      }
       return e;
+    }
     
-    boolean edited = !Collections.disjoint(sourceFiles, editedSourceFiles.keySet());
-    if (!edited) {
+    if (editedSourceFiles.isEmpty()) {
       e = create(cl, stamper, compileDep);
       for (RelativePath sourceFile : sourceFiles)
         e.addSourceArtifact(sourceFile);
