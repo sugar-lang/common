@@ -61,7 +61,7 @@ public abstract class PersistableEntity {
   
   protected abstract void init();
   
-  final public static <E extends PersistableEntity> E create(Class<E> clazz, Stamper stamper, Path p) throws IOException {
+  final protected static <E extends PersistableEntity> E create(Class<E> clazz, Stamper stamper, Path p) throws IOException {
     E entity;
     try {
       entity = read(clazz, stamper, p);
@@ -109,6 +109,7 @@ public abstract class PersistableEntity {
     }
 
     entity.stamper = stamper;
+    entity.setPersistentPath(p);
 
     ObjectInputStream in = new ObjectInputStream(new FileInputStream(p.getAbsolutePath()));
 
@@ -119,14 +120,13 @@ public abstract class PersistableEntity {
       in.close();
     }
     
-    entity.setPersistentPath(p);
     return entity;
   }
   
-  final public void write(Path p) throws IOException {
-    cacheInMemory(p);
+  final public void write() throws IOException {
+    cacheInMemory(persistentPath);
     
-    ObjectOutputStream out = new ObjectOutputStream(new FileOutputStream(p.getAbsolutePath()));
+    ObjectOutputStream out = new ObjectOutputStream(new FileOutputStream(persistentPath.getAbsolutePath()));
 
     // TODO write file header
     try {
@@ -134,8 +134,6 @@ public abstract class PersistableEntity {
     } finally {
       out.close();
     }
-    
-    setPersistentPath(p);
   }
   
   final public static <E extends PersistableEntity> E readFromMemoryCache(Class<E> clazz, Path p) {

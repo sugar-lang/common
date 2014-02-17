@@ -33,6 +33,35 @@ abstract public class CompilationUnit extends PersistableEntity {
   protected Set<CompilationUnit> circularModuleDependencies;  
   protected Map<RelativePath, Integer> externalFileDependencies;
   protected Map<Path, Integer> generatedFiles;
+
+  // **************************
+  // Methods for initialization
+  // **************************
+
+  final protected static <E extends CompilationUnit> E create(Class<E> cl, Stamper stamper, Path compileDep, Path editedDep, Set<RelativePath> sourceFiles, Map<RelativePath, Integer> editedSourceFiles) throws IOException {
+    boolean edited = !Collections.disjoint(sourceFiles, editedSourceFiles.keySet());
+    
+    if (!edited) {
+      E e = PersistableEntity.create(cl, stamper, compileDep);
+      for (RelativePath sourceFile : sourceFiles)
+        e.addSourceArtifact(sourceFile);
+      return e;
+    }
+    
+    E editedE = PersistableEntity.create(cl, stamper, editedDep);
+    E compileE = PersistableEntity.create(cl, stamper, compileDep);
+    compileE.editedCompilationUnit = editedE;
+    
+    for (RelativePath sourceFile : sourceFiles) {
+      Integer editedStamp = editedSourceFiles.get(sourceFile);
+      if (editedStamp != null)
+        editedE.addSourceArtifact(sourceFile, editedStamp);
+      else
+        editedE.addSourceArtifact(sourceFile);
+    }
+    
+    return editedE;
+  }
   
   @Override
   protected void init() {
@@ -47,8 +76,8 @@ abstract public class CompilationUnit extends PersistableEntity {
   // Methods for adding dependencies
   // *******************************
   
-  public void addSourceArtifact(RelativePath file) { addSourceArtifact(file, stamper.stampOf(file)); }
-  public void addSourceArtifact(RelativePath file, int stampOfFile) {
+  protected void addSourceArtifact(RelativePath file) { addSourceArtifact(file, stamper.stampOf(file)); }
+  protected void addSourceArtifact(RelativePath file, int stampOfFile) {
     sourceArtifacts.put(file, stampOfFile);
   }
 
@@ -75,6 +104,10 @@ abstract public class CompilationUnit extends PersistableEntity {
   // Methods for querying dependencies
   // *********************************
 
+  public CompilationUnit getEditedCompilationUnit() {
+    return editedCompilationUnit;
+  }
+  
   public boolean dependsOn(CompilationUnit other) {
     return moduleDependencies.containsKey(other) || circularModuleDependencies.contains(other);    
   }
