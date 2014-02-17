@@ -44,9 +44,8 @@ public abstract class PersistableEntity {
            persistentStamp != stamper.stampOf(persistentPath);
   }
   
-  final protected void setPersistentPath(Path dep) throws IOException {
-    persistentPath = dep;
-    persistentStamp = stamper.stampOf(dep);
+  final protected void setPersisted() throws IOException {
+    persistentStamp = stamper.stampOf(persistentPath);
     isPersisted = true;
   }
   
@@ -84,8 +83,10 @@ public abstract class PersistableEntity {
       e.printStackTrace();
       return null;
     }
+
     entity.stamper = stamper;
     entity.persistentPath = p;
+    entity.cacheInMemory();
     entity.init();
     return entity;
   }
@@ -109,7 +110,9 @@ public abstract class PersistableEntity {
     }
 
     entity.stamper = stamper;
-    entity.setPersistentPath(p);
+    entity.persistentPath = p;
+    entity.setPersisted();
+    entity.cacheInMemory();
 
     ObjectInputStream in = new ObjectInputStream(new FileInputStream(p.getAbsolutePath()));
 
@@ -124,19 +127,19 @@ public abstract class PersistableEntity {
   }
   
   final public void write() throws IOException {
-    cacheInMemory(persistentPath);
-    
+    FileCommands.createFile(persistentPath);
     ObjectOutputStream out = new ObjectOutputStream(new FileOutputStream(persistentPath.getAbsolutePath()));
 
     // TODO write file header
     try {
       writeEntity(out);
     } finally {
+      setPersisted();
       out.close();
     }
   }
   
-  final public static <E extends PersistableEntity> E readFromMemoryCache(Class<E> clazz, Path p) {
+  final protected static <E extends PersistableEntity> E readFromMemoryCache(Class<E> clazz, Path p) {
     SoftReference<? extends PersistableEntity> ref;
     synchronized (PersistableEntity.class) {
       ref = inMemory.get(p);
@@ -150,9 +153,9 @@ public abstract class PersistableEntity {
     return null;
   }
   
-  final private void cacheInMemory(Path p) {
+  final protected void cacheInMemory() {
     synchronized (PersistableEntity.class) {
-      inMemory.put(p, new SoftReference<>(this));
+      inMemory.put(persistentPath, new SoftReference<>(this));
     }
   }
   

@@ -39,10 +39,20 @@ abstract public class CompilationUnit extends PersistableEntity {
   // **************************
 
   final protected static <E extends CompilationUnit> E create(Class<E> cl, Stamper stamper, Path compileDep, Path editedDep, Set<RelativePath> sourceFiles, Map<RelativePath, Integer> editedSourceFiles) throws IOException {
-    boolean edited = !Collections.disjoint(sourceFiles, editedSourceFiles.keySet());
+    E e;
+    try {
+      e = read(cl, stamper, compileDep, editedDep, editedSourceFiles);
+    } catch (ClassNotFoundException ex) {
+      ex.printStackTrace();
+      e = null;
+    }
     
+    if (e != null)
+      return e;
+    
+    boolean edited = !Collections.disjoint(sourceFiles, editedSourceFiles.keySet());
     if (!edited) {
-      E e = PersistableEntity.create(cl, stamper, compileDep);
+      e = create(cl, stamper, compileDep);
       for (RelativePath sourceFile : sourceFiles)
         e.addSourceArtifact(sourceFile);
       return e;
@@ -60,6 +70,24 @@ abstract public class CompilationUnit extends PersistableEntity {
         editedE.addSourceArtifact(sourceFile);
     }
     
+    return editedE;
+  }
+ 
+  final protected static <E extends CompilationUnit> E read(Class<E> cl, Stamper stamper, Path compileDep, Path editedDep, final Map<RelativePath, Integer> editedSourceFiles) throws IOException, ClassNotFoundException {
+    E compileE = PersistableEntity.read(cl, stamper, compileDep);
+    
+    ModuleVisitor<Boolean> hasEditedSourceFilesVisitor = new ModuleVisitor<Boolean>() {
+      @Override public Boolean visit(CompilationUnit mod) { return !Collections.disjoint(mod.sourceArtifacts.keySet(), editedSourceFiles.keySet()); }
+      @Override public Boolean combine(Boolean t1, Boolean t2) { return t1 || t2; }
+      @Override public Boolean init() { return false; }
+      @Override public boolean cancel(Boolean t) { return t == true; }
+    };
+    
+    if (compileE != null && !compileE.sourceArtifacts.isEmpty() && !compileE.visit(hasEditedSourceFilesVisitor))
+      return compileE;
+    
+    @SuppressWarnings("unchecked")
+    E editedE = compileE != null && compileE.editedCompilationUnit != null ? (E) compileE.editedCompilationUnit : PersistableEntity.read(cl, stamper, editedDep);
     return editedE;
   }
   
@@ -180,9 +208,9 @@ abstract public class CompilationUnit extends PersistableEntity {
     boolean hasEdits = conistencyCheckEditedSourceArtifacts != null;
     for (Entry<RelativePath, Integer> e : sourceArtifacts.entrySet()) {
       Integer stamp = hasEdits ? conistencyCheckEditedSourceArtifacts.get(e.getKey()) : null;
-      if (stamp != null && stamp != e.getValue())
+      if (stamp != null && !stamp.equals(e.getValue()))
         return false;
-      else if (!FileCommands.exists(e.getKey()) || e.getValue() != stamper.stampOf(e.getKey()))
+      else if (stamp == null && (!FileCommands.exists(e.getKey()) || e.getValue() != stamper.stampOf(e.getKey())))
         return false;
     }
 
@@ -232,18 +260,19 @@ abstract public class CompilationUnit extends PersistableEntity {
     
     final ModuleVisitor<Boolean> isConsistentEditedVisitor = new ModuleVisitor<Boolean>() {
       @Override public Boolean visit(CompilationUnit mod) {
-        if (mod.editedCompilationUnit == null || Collections.disjoint(mod.sourceArtifacts.keySet(), editedSourceArtifacts.keySet()))
+        if (mod.editedCompilationUnit == null && Collections.disjoint(mod.sourceArtifacts.keySet(), editedSourceArtifacts.keySet()))
           return mod.isConsistentShallow();
         
-        if (editedCompilationUnit == null)
+        if (mod.editedCompilationUnit == null)
           return false;
         
-        synchronized (mod) {
-          mod.conistencyCheckEditedSourceArtifacts = editedSourceArtifacts;
+        CompilationUnit edited = mod.editedCompilationUnit;
+        synchronized (edited) {
+          edited.conistencyCheckEditedSourceArtifacts = editedSourceArtifacts;
           try {
-            return mod.editedCompilationUnit.isConsistentShallow();
+            return edited.isConsistentShallow();
           } finally {
-            mod.conistencyCheckEditedSourceArtifacts = null;
+            edited.conistencyCheckEditedSourceArtifacts = null;
           }
         } 
       }
@@ -282,6 +311,9 @@ abstract public class CompilationUnit extends PersistableEntity {
       deps.addAll(mod.getModuleDependencies());
       deps.addAll(mod.getCircularModuleDependencies());
       for (CompilationUnit dep : deps) {
+//        if (dep.editedCompilationUnit != null && ranks.containsKey(dep.editedCompilationUnit))
+//          dep = dep.editedCompilationUnit;
+        
         Integer rDep = ranks.get(dep);
         if (rDep != null) {
           ranks.put(dep, Math.min(rDep, rMod));
@@ -356,6 +388,8 @@ abstract public class CompilationUnit extends PersistableEntity {
       Class<? extends CompilationUnit> cl = (Class<? extends CompilationUnit>) getClass().getClassLoader().loadClass(clName);
       Path path = (Path) in.readObject();
       CompilationUnit mod = PersistableEntity.read(cl, stamper, path);
+      if (mod == null)
+        throw new IllegalStateException("Required module cannot be read: " + path);
       circularModuleDependencies.add(mod);
     }
   }
