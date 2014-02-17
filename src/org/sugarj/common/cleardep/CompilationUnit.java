@@ -25,34 +25,22 @@ import org.sugarj.common.path.RelativePath;
 abstract public class CompilationUnit extends PersistableEntity {
   
   public CompilationUnit() { /* for deserialization only */ }
-//  public CompilationUnit(Stamper stamper) {
-//    super(stamper);
-//  }
 
-  private Map<RelativePath, Integer> sourceArtifacts;
-  private Map<RelativePath, Integer> editedSourceArtifacts = null;
+  protected CompilationUnit editedCompilationUnit;
   
-  private Map<CompilationUnit, Integer> moduleDependencies;
-  private Set<CompilationUnit> circularModuleDependencies;
+  protected Map<RelativePath, Integer> sourceArtifacts;
+  protected Map<CompilationUnit, Integer> moduleDependencies;
+  protected Set<CompilationUnit> circularModuleDependencies;  
+  protected Map<RelativePath, Integer> externalFileDependencies;
+  protected Map<Path, Integer> generatedFiles;
   
-  private Map<RelativePath, Integer> externalFileDependencies;
-  
-  private Map<Path, Integer> generatedFiles;
-  
-  /**
-   * Transitive closure (over module dependencies) of required and generated files.
-   */
-  transient private Map<Path, Integer> transitivelyAffectedFiles;
-
   @Override
   protected void init() {
     sourceArtifacts = new HashMap<>();
-    editedSourceArtifacts = new HashMap<>();
     moduleDependencies = new HashMap<>();
     circularModuleDependencies = new HashSet<>();
     externalFileDependencies = new HashMap<>();
     generatedFiles = new HashMap<>();
-    transitivelyAffectedFiles = new HashMap<>();
   }
   
   // *******************************
@@ -64,20 +52,14 @@ abstract public class CompilationUnit extends PersistableEntity {
     sourceArtifacts.put(file, stampOfFile);
   }
 
-  public void addEditedSourceArtifact(RelativePath originalSourceFile, int stampOfEditedSource) {
-    editedSourceArtifacts.put(originalSourceFile, stampOfEditedSource);
-  }
-
   public void addExternalFileDependency(RelativePath file) { addExternalFileDependency(file, stamper.stampOf(file)); }
   public void addExternalFileDependency(RelativePath file, int stampOfFile) {
     externalFileDependencies.put(file, stampOfFile);
-    transitivelyAffectedFiles.put(file, stampOfFile);
   }
   
   public void addGeneratedFile(Path file) { addGeneratedFile(file, stamper.stampOf(file)); }
   public void addGeneratedFile(Path file, int stampOfFile) {
     generatedFiles.put(file, stampOfFile);
-    transitivelyAffectedFiles.put(file, stampOfFile);
   }
   
   public void addCircularModuleDependency(CompilationUnit mod) {
@@ -86,7 +68,6 @@ abstract public class CompilationUnit extends PersistableEntity {
   
   public void addModuleDependency(CompilationUnit mod) throws IOException {
     moduleDependencies.put(mod, mod.stamp());
-    transitivelyAffectedFiles.putAll(mod.getTransitivelyAffectedFileStamps());
   }
   
   
@@ -111,10 +92,6 @@ abstract public class CompilationUnit extends PersistableEntity {
     return sourceArtifacts.keySet();
   }
   
-  public Set<RelativePath> getEditedSourceArtifacts() {
-    return editedSourceArtifacts.keySet();
-  }
-  
   public Set<CompilationUnit> getModuleDependencies() {
     return moduleDependencies.keySet();
   }
@@ -131,32 +108,6 @@ abstract public class CompilationUnit extends PersistableEntity {
     return generatedFiles.keySet();
   }
 
-  public Set<Path> getTransitivelyAffectedFiles() {
-    return getTransitivelyAffectedFileStamps().keySet();
-  }
-  
-  private Map<Path, Integer> getTransitivelyAffectedFileStamps() {
-    if (transitivelyAffectedFiles == null) {
-      final Map<Path, Integer> deps = new HashMap<>();
-      
-      ModuleVisitor<Void> collectAffectedFileStampsVisitor = new ModuleVisitor<Void>() {
-        @Override public Void visit(CompilationUnit mod) { 
-          deps.putAll(generatedFiles); 
-          deps.putAll(externalFileDependencies);
-          return null;
-        }
-        @Override public Void combine(Void v1, Void v2) { return null; }
-        @Override public Void init() { return null; }
-      };
-      
-      visit(collectAffectedFileStampsVisitor);
-      
-      synchronized(this) { transitivelyAffectedFiles = deps; }
-    }
-
-    return transitivelyAffectedFiles;
-  }
-  
   public Set<Path> getCircularFileDependencies() throws IOException {
     Set<Path> dependencies = new HashSet<Path>();
     Set<CompilationUnit> visited = new HashSet<>();
@@ -193,20 +144,14 @@ abstract public class CompilationUnit extends PersistableEntity {
   protected abstract boolean isConsistentExtend();
   
   protected boolean isConsistentWithSourceArtifacts() {
-    boolean hasEdits = conistenceCheckEditedSourceArtifacts == null;
-    if (!hasEdits && editedSourceArtifacts.size() != 0)
-      return false;
-    for (Entry<RelativePath, Integer> e : editedSourceArtifacts.entrySet()) {
-      Integer other = conistenceCheckEditedSourceArtifacts.get(e.getKey());
-      if (other == null || !other.equals(e.getValue()))
+    boolean hasEdits = conistencyCheckEditedSourceArtifacts != null;
+    for (Entry<RelativePath, Integer> e : sourceArtifacts.entrySet()) {
+      Integer stamp = hasEdits ? conistencyCheckEditedSourceArtifacts.get(e.getKey()) : null;
+      if (stamp != null && stamp != e.getValue())
         return false;
-    }
-    
-    for (Entry<RelativePath, Integer> e : sourceArtifacts.entrySet())
-      if (hasEdits && conistenceCheckEditedSourceArtifacts.containsKey(e.getKey()))
-        continue;
       else if (!FileCommands.exists(e.getKey()) || e.getValue() != stamper.stampOf(e.getKey()))
         return false;
+    }
 
     return true;
   }
@@ -240,20 +185,41 @@ abstract public class CompilationUnit extends PersistableEntity {
     @Override public Boolean visit(CompilationUnit mod) { return mod.isConsistentShallow(); }
     @Override public Boolean combine(Boolean t1, Boolean t2) { return t1 && t2; }
     @Override public Boolean init() { return true; }
+    @Override public boolean cancel(Boolean t) { return !t; }
   }; 
 
   public boolean isConsistent() {
     return visit(isConsistentVisitor);
   }
   
-  private Map<? extends Path, Integer> conistenceCheckEditedSourceArtifacts;
-  public synchronized boolean isConsistent(Map<RelativePath, Integer> editedSourceArtifacts) {
-    this.conistenceCheckEditedSourceArtifacts = editedSourceArtifacts;
-    try {
-      return visit(isConsistentVisitor);
-    } finally {
-      this.conistenceCheckEditedSourceArtifacts = null;
-    }
+  private Map<? extends Path, Integer> conistencyCheckEditedSourceArtifacts;
+  public boolean isConsistent(final Map<? extends Path, Integer> editedSourceArtifacts) {
+    if (editedSourceArtifacts.isEmpty())
+      return isConsistent();
+    
+    final ModuleVisitor<Boolean> isConsistentEditedVisitor = new ModuleVisitor<Boolean>() {
+      @Override public Boolean visit(CompilationUnit mod) {
+        if (mod.editedCompilationUnit == null || Collections.disjoint(mod.sourceArtifacts.keySet(), editedSourceArtifacts.keySet()))
+          return mod.isConsistentShallow();
+        
+        if (editedCompilationUnit == null)
+          return false;
+        
+        synchronized (mod) {
+          mod.conistencyCheckEditedSourceArtifacts = editedSourceArtifacts;
+          try {
+            return mod.editedCompilationUnit.isConsistentShallow();
+          } finally {
+            mod.conistencyCheckEditedSourceArtifacts = null;
+          }
+        } 
+      }
+      @Override public Boolean combine(Boolean t1, Boolean t2) { return t1 && t2; }
+      @Override public Boolean init() { return true; }
+      @Override public boolean cancel(Boolean t) { return !t; }
+    }; 
+    
+    return visit(isConsistentEditedVisitor);
   }
   
   
@@ -265,6 +231,7 @@ abstract public class CompilationUnit extends PersistableEntity {
     public T visit(CompilationUnit mod);
     public T combine(T t1, T t2);
     public T init();
+    public boolean cancel(T t);
   }
 
   private Map<CompilationUnit, Integer> computeRanks() {
@@ -319,6 +286,8 @@ abstract public class CompilationUnit extends PersistableEntity {
     for (CompilationUnit mod : mods) {
       T newResult = visitor.visit(mod);
       result = visitor.combine(result, newResult);
+      if (visitor.cancel(result))
+        break;
     }
     
     return result;
@@ -333,7 +302,6 @@ abstract public class CompilationUnit extends PersistableEntity {
   @SuppressWarnings("unchecked")
   protected void readEntity(ObjectInputStream in) throws IOException, ClassNotFoundException {
     sourceArtifacts = (Map<RelativePath, Integer>) in.readObject();
-    editedSourceArtifacts = (Map<RelativePath, Integer>) in.readObject();
     generatedFiles = (Map<Path, Integer>) in.readObject();
     externalFileDependencies = (Map<RelativePath, Integer>) in.readObject();
     
@@ -362,7 +330,6 @@ abstract public class CompilationUnit extends PersistableEntity {
   @Override
   protected void writeEntity(ObjectOutputStream out) throws IOException {
     out.writeObject(sourceArtifacts = Collections.unmodifiableMap(sourceArtifacts));
-    out.writeObject(editedSourceArtifacts = Collections.unmodifiableMap(editedSourceArtifacts));
     out.writeObject(generatedFiles = Collections.unmodifiableMap(generatedFiles));
     out.writeObject(externalFileDependencies = Collections.unmodifiableMap(externalFileDependencies));
 
