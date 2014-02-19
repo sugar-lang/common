@@ -44,7 +44,7 @@ abstract public class CompilationUnit extends PersistableEntity {
   // **************************
 
   @SuppressWarnings("unchecked")
-  final protected static <E extends CompilationUnit> E create(Class<E> cl, Stamper stamper, Path compileDep, Path editedDep, boolean doCompile, Set<RelativePath> sourceFiles, Map<RelativePath, Integer> editedSourceFiles) throws IOException {
+  final protected static <E extends CompilationUnit> E create(Class<E> cl, Stamper stamper, Path compileDep, Path compileTarget, Path editedDep, Path editedTarget, boolean doCompile, Set<RelativePath> sourceFiles, Map<RelativePath, Integer> editedSourceFiles) throws IOException {
     E compileE;
     try {
       compileE = PersistableEntity.read(cl, stamper, compileDep);
@@ -54,6 +54,7 @@ abstract public class CompilationUnit extends PersistableEntity {
     }
     if (compileE == null)
       compileE = PersistableEntity.create(cl, stamper, compileDep);
+    compileE.targetDir = compileTarget;
     
     E editedE;
     if (compileE.editedCompilationUnit != null)
@@ -62,6 +63,10 @@ abstract public class CompilationUnit extends PersistableEntity {
       editedE = PersistableEntity.create(cl, stamper, editedDep);
       compileE.editedCompilationUnit = editedE;
     }
+    
+    if (editedE.compiledCompilationUnit == null)
+      editedE.compiledCompilationUnit = compileE;
+    editedE.targetDir = editedTarget;
     
     E e = doCompile ? compileE : editedE;
     e.init();
