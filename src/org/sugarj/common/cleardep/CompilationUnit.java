@@ -34,7 +34,7 @@ abstract public class CompilationUnit extends PersistableEntity {
   
   protected Path targetDir;
   protected Map<RelativePath, Integer> sourceArtifacts;
-  protected Map<CompilationUnit, Integer> moduleDependencies;
+  protected Set<CompilationUnit> moduleDependencies;
   protected Set<CompilationUnit> circularModuleDependencies;  
   protected Map<Path, Integer> externalFileDependencies;
   protected Map<Path, Integer> generatedFiles;
@@ -117,7 +117,7 @@ abstract public class CompilationUnit extends PersistableEntity {
         
         compiled.sourceArtifacts.putAll(edited.sourceArtifacts);
         
-        for (CompilationUnit dep : edited.moduleDependencies.keySet())
+        for (CompilationUnit dep : edited.moduleDependencies)
           if (dep.compiledCompilationUnit == null)
             compiled.addModuleDependency(dep);
           else
@@ -135,6 +135,12 @@ abstract public class CompilationUnit extends PersistableEntity {
         for (Path p : edited.generatedFiles.keySet())
           compiled.addGeneratedFile(FileCommands.tryCopyFile(edited.targetDir, compiled.targetDir, p));
         
+        try {
+          compiled.write();
+        } catch (IOException e) {
+          throw new RuntimeException(e);
+        }
+        
         return null; 
         }
       @Override public Void combine(Void t1, Void t2) { return null; }
@@ -151,7 +157,7 @@ abstract public class CompilationUnit extends PersistableEntity {
   @Override
   protected void init() {
     sourceArtifacts = new HashMap<>();
-    moduleDependencies = new HashMap<>();
+    moduleDependencies = new HashSet<>();
     circularModuleDependencies = new HashSet<>();
     externalFileDependencies = new HashMap<>();
     generatedFiles = new HashMap<>();
@@ -181,7 +187,7 @@ abstract public class CompilationUnit extends PersistableEntity {
   }
   
   public void addModuleDependency(CompilationUnit mod) {
-    moduleDependencies.put(mod, mod.stamp());
+    moduleDependencies.add(mod);
   }
   
   
@@ -192,15 +198,28 @@ abstract public class CompilationUnit extends PersistableEntity {
   public CompilationUnit getEditedCompilationUnit() {
     return editedCompilationUnit;
   }
-  
+
+  public boolean dependsOnNoncircularly(CompilationUnit other) {
+    return moduleDependencies.contains(other);    
+  }
+
+  public boolean dependsOnTransitivelyNoncircularly(CompilationUnit other) {
+    if (dependsOnNoncircularly(other))
+      return true;
+    for (CompilationUnit mod : moduleDependencies)
+      if (mod.dependsOnTransitivelyNoncircularly(other))
+        return true;
+    return false;
+  }
+
   public boolean dependsOn(CompilationUnit other) {
-    return moduleDependencies.containsKey(other) || circularModuleDependencies.contains(other);    
+    return moduleDependencies.contains(other) || circularModuleDependencies.contains(other);    
   }
 
   public boolean dependsOnTransitively(CompilationUnit other) {
     if (dependsOn(other))
       return true;
-    for (CompilationUnit mod : moduleDependencies.keySet())
+    for (CompilationUnit mod : moduleDependencies)
       if (mod.dependsOnTransitively(other))
         return true;
     return false;
@@ -211,7 +230,7 @@ abstract public class CompilationUnit extends PersistableEntity {
   }
   
   public Set<CompilationUnit> getModuleDependencies() {
-    return moduleDependencies.keySet();
+    return moduleDependencies;
   }
   
   public Set<CompilationUnit> getCircularModuleDependencies() {
@@ -243,7 +262,7 @@ abstract public class CompilationUnit extends PersistableEntity {
         if (!dependencies.contains(p) && FileCommands.exists(p))
           dependencies.add(p);
       
-      for (CompilationUnit nextDep: res.moduleDependencies.keySet())
+      for (CompilationUnit nextDep: res.moduleDependencies)
         if (!visited.contains(nextDep) && !queue.contains(nextDep))
           queue.addFirst(nextDep);
       for (CompilationUnit nextDep : res.circularModuleDependencies)
@@ -292,10 +311,6 @@ abstract public class CompilationUnit extends PersistableEntity {
       if (stamper.stampOf(e.getKey()) != e.getValue())
         return false;
 
-    for (Entry<CompilationUnit, Integer> e : moduleDependencies.entrySet())
-      if (e.getKey().stamp() != e.getValue())
-        return false;
-    
     if (!isConsistentExtend())
       return false;
 
@@ -395,13 +410,27 @@ abstract public class CompilationUnit extends PersistableEntity {
    * Visits the module graph starting from this module, satisfying the following properties:
    *  - every module transitively imported from `this` module is visited exactly once
    *  - if a module M1 is visited before a module M2,
-   *    then M1 is not transitively imported from M2 or M1 and M2 are mutually dependent.   
+   *    then (i) M1 is not transitively imported from M2 or 
+   *         (ii) M1 and M2 transitively have a circular dependency and
+   *              M1 transitively imports M2 using `moduleDependencies` only.   
    */
   public <T> T visit(ModuleVisitor<T> visitor) {
     final Map<CompilationUnit, Integer> ranks = computeRanks();
     
     Comparator<CompilationUnit> comparator = new Comparator<CompilationUnit>() {
-      public int compare(CompilationUnit m1, CompilationUnit m2) { return ranks.get(m1).compareTo(ranks.get(m2)); }
+      public int compare(CompilationUnit m1, CompilationUnit m2) { 
+        int r1 = ranks.get(m1);
+        int r2 = ranks.get(m2);
+        int c = Integer.compare(r1, r2);
+        if (c != 0)
+          return c;
+        if (m1.dependsOnTransitivelyNoncircularly(m2))
+          // m2 before m1
+          return 1;
+        assert m2.dependsOnTransitivelyNoncircularly(m1);
+        // m1 before m2
+        return -1;
+      }
     }; 
     
     CompilationUnit[] mods = ranks.keySet().toArray(new CompilationUnit[ranks.size()]);
@@ -432,14 +461,13 @@ abstract public class CompilationUnit extends PersistableEntity {
     externalFileDependencies = (Map<Path, Integer>) in.readObject();
     
     int moduleDepencyCount = in.readInt();
-    moduleDependencies = new HashMap<>(moduleDepencyCount);
+    moduleDependencies = new HashSet<>(moduleDepencyCount);
     for (int i = 0; i < moduleDepencyCount; i++) {
       String clName = (String) in.readObject();
       Class<? extends CompilationUnit> cl = (Class<? extends CompilationUnit>) getClass().getClassLoader().loadClass(clName);
       Path path = (Path) in.readObject();
-      int stamp = in.readInt();
       CompilationUnit mod = PersistableEntity.read(cl, stamper, path);
-      moduleDependencies.put(mod, stamp);
+      moduleDependencies.add(mod);
     }
     
     int circularModuleDependencyCount = in.readInt();
@@ -463,16 +491,14 @@ abstract public class CompilationUnit extends PersistableEntity {
     out.writeObject(externalFileDependencies = Collections.unmodifiableMap(externalFileDependencies));
 
     out.writeInt(moduleDependencies.size());
-    for (Entry<CompilationUnit, Integer> e : moduleDependencies.entrySet()) {
-      assert e.getKey().isPersisted() : "Required compilation units must be persisted.";
-      out.writeObject(e.getKey().getClass().getCanonicalName());
-      out.writeObject(e.getKey().persistentPath);
-      out.writeInt(e.getValue());
+    for (CompilationUnit mod : moduleDependencies) {
+      assert mod.isPersisted() : "Required compilation units must be persisted.";
+      out.writeObject(mod.getClass().getCanonicalName());
+      out.writeObject(mod.persistentPath);
     }
     
     out.writeInt(circularModuleDependencies.size());
     for (CompilationUnit mod : circularModuleDependencies) {
-//      assert mod.isPersisted() : "Circularly required compilation units must be persisted.";
       out.writeObject(mod.getClass().getCanonicalName());
       out.writeObject(mod.persistentPath);
     }
