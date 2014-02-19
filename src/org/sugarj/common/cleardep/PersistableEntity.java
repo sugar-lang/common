@@ -5,10 +5,12 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
+import java.io.Serializable;
 import java.lang.ref.SoftReference;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.eclipse.core.commands.SerializationException;
 import org.sugarj.common.FileCommands;
 import org.sugarj.common.path.Path;
 
@@ -16,8 +18,10 @@ import org.sugarj.common.path.Path;
  * @author Sebastian Erdweg
  *
  */
-public abstract class PersistableEntity {
+public abstract class PersistableEntity implements Serializable {
   
+  private static final long serialVersionUID = 3725384862203109760L;
+
   private final static Map<Path, SoftReference<? extends PersistableEntity>> inMemory = new HashMap<>();
   
   protected Stamper stamper;
@@ -64,7 +68,7 @@ public abstract class PersistableEntity {
     E entity;
     try {
       entity = read(clazz, stamper, p);
-    } catch (ClassNotFoundException e) {
+    } catch (IOException e) {
       e.printStackTrace();
       entity = null;
     }
@@ -91,7 +95,7 @@ public abstract class PersistableEntity {
     return entity;
   }
   
-  final public static <E extends PersistableEntity> E read(Class<E> clazz, Stamper stamper, Path p) throws IOException, ClassNotFoundException {
+  final protected static <E extends PersistableEntity> E read(Class<E> clazz, Stamper stamper, Path p) throws IOException {
     E entity = readFromMemoryCache(clazz, p);
     if (entity != null && !entity.hasPersistentVersionChanged())
       return entity;
@@ -116,9 +120,16 @@ public abstract class PersistableEntity {
 
     ObjectInputStream in = new ObjectInputStream(new FileInputStream(p.getAbsolutePath()));
 
-    // TODO read file header
     try {
+      long id = in.readLong();
+      if (id != serialVersionUID) {
+        new SerializationException("Cannot read old version of persistable entity.").printStackTrace();
+        return null;
+      }
+        
       entity.readEntity(in);
+    } catch (ClassNotFoundException e) {
+      throw new IOException(e);
     } finally {
       in.close();
     }
@@ -130,8 +141,8 @@ public abstract class PersistableEntity {
     FileCommands.createFile(persistentPath);
     ObjectOutputStream out = new ObjectOutputStream(new FileOutputStream(persistentPath.getAbsolutePath()));
 
-    // TODO write file header
     try {
+      out.writeLong(serialVersionUID);
       writeEntity(out);
     } finally {
       setPersisted();

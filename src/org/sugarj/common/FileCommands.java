@@ -429,13 +429,17 @@ public class FileCommands {
     return null;
   }
   
-  public static Path tryCopyFile(Path from, Path to, Path file) throws IOException {
+  public static Path tryCopyFile(Path from, Path to, Path file) {
     RelativePath p = getRelativePath(from, file);
-    Path target = file;
     if (p != null) {
-      target = new RelativePath(to, p.getRelativePath());
-      copyFile(p, target);
+      Path target = new RelativePath(to, p.getRelativePath());
+      try {
+        copyFile(p, target);
+        return target;
+      } catch (IOException e) {
+        e.printStackTrace();
+      }
     }
-    return target;
+    return file;
   }
 }

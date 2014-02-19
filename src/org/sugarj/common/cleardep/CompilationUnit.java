@@ -24,66 +24,61 @@ import org.sugarj.common.path.RelativePath;
  */
 abstract public class CompilationUnit extends PersistableEntity {
   
+  private static final long serialVersionUID = -5713504273621720673L;
+
   public CompilationUnit() { /* for deserialization only */ }
 
+  // At most one of `compiledCompilationUnit` and `editedCompilationUnit` is not null.
+  protected CompilationUnit compiledCompilationUnit;
   protected CompilationUnit editedCompilationUnit;
   
+  protected Path targetDir;
   protected Map<RelativePath, Integer> sourceArtifacts;
   protected Map<CompilationUnit, Integer> moduleDependencies;
   protected Set<CompilationUnit> circularModuleDependencies;  
-  protected Map<RelativePath, Integer> externalFileDependencies;
+  protected Map<Path, Integer> externalFileDependencies;
   protected Map<Path, Integer> generatedFiles;
 
   // **************************
   // Methods for initialization
   // **************************
 
-  final protected static <E extends CompilationUnit> E create(Class<E> cl, Stamper stamper, Path compileDep, Path editedDep, Set<RelativePath> sourceFiles, Map<RelativePath, Integer> editedSourceFiles) throws IOException {
-    E e;
+  @SuppressWarnings("unchecked")
+  final protected static <E extends CompilationUnit> E create(Class<E> cl, Stamper stamper, Path compileDep, Path editedDep, boolean doCompile, Set<RelativePath> sourceFiles, Map<RelativePath, Integer> editedSourceFiles) throws IOException {
+    E compileE;
     try {
-      e = read(cl, stamper, compileDep, editedDep, editedSourceFiles);
-    } catch (ClassNotFoundException ex) {
-      ex.printStackTrace();
-      e = null;
+      compileE = PersistableEntity.read(cl, stamper, compileDep);
+    } catch (IOException e) {
+      e.printStackTrace();
+      compileE = null;
+    }
+    if (compileE == null)
+      compileE = PersistableEntity.create(cl, stamper, compileDep);
+    
+    E editedE;
+    if (compileE.editedCompilationUnit != null)
+      editedE = (E) compileE.editedCompilationUnit;
+    else {
+      editedE = PersistableEntity.create(cl, stamper, editedDep);
+      compileE.editedCompilationUnit = editedE;
     }
     
-    if (e != null) {
-      e.init();
-      for (RelativePath sourceFile : sourceFiles) {
-        Integer editedStamp = editedSourceFiles.get(sourceFile);
-        if (editedStamp != null)
-          e.addSourceArtifact(sourceFile, editedStamp);
-        else
-          e.addSourceArtifact(sourceFile);
-      }
-      return e;
-    }
-    
-    if (editedSourceFiles.isEmpty()) {
-      e = create(cl, stamper, compileDep);
-      for (RelativePath sourceFile : sourceFiles)
-        e.addSourceArtifact(sourceFile);
-      return e;
-    }
-    
-    E editedE = PersistableEntity.create(cl, stamper, editedDep);
-    E compileE = PersistableEntity.create(cl, stamper, compileDep);
-    compileE.editedCompilationUnit = editedE;
+    E e = doCompile ? compileE : editedE;
+    e.init();
     
     for (RelativePath sourceFile : sourceFiles) {
       Integer editedStamp = editedSourceFiles.get(sourceFile);
       if (editedStamp != null)
-        editedE.addSourceArtifact(sourceFile, editedStamp);
+        e.addSourceArtifact(sourceFile, editedStamp);
       else
-        editedE.addSourceArtifact(sourceFile);
+        e.addSourceArtifact(sourceFile);
     }
     
-    return editedE;
+    return e;
   }
  
-  final protected static <E extends CompilationUnit> E read(Class<E> cl, Stamper stamper, Path compileDep, Path editedDep, final Map<RelativePath, Integer> editedSourceFiles) throws IOException, ClassNotFoundException {
-    E compileE = PersistableEntity.read(cl, stamper, compileDep);
-    
+  @SuppressWarnings("unchecked")
+  final protected static <E extends CompilationUnit> E read(Class<E> cl, Stamper stamper, Path compileDep, Path editedDep, boolean doCompile, final Map<RelativePath, Integer> editedSourceFiles) throws IOException {
     ModuleVisitor<Boolean> hasEditedSourceFilesVisitor = new ModuleVisitor<Boolean>() {
       @Override public Boolean visit(CompilationUnit mod) { return !Collections.disjoint(mod.sourceArtifacts.keySet(), editedSourceFiles.keySet()); }
       @Override public Boolean combine(Boolean t1, Boolean t2) { return t1 || t2; }
@@ -91,14 +86,63 @@ abstract public class CompilationUnit extends PersistableEntity {
       @Override public boolean cancel(Boolean t) { return t == true; }
     };
     
-    if (compileE != null && !compileE.sourceArtifacts.isEmpty() && !compileE.visit(hasEditedSourceFilesVisitor))
+    E compileE = PersistableEntity.read(cl, stamper, compileDep);
+    if (compileE != null && !compileE.sourceArtifacts.isEmpty() && (editedSourceFiles.isEmpty() || !compileE.visit(hasEditedSourceFilesVisitor)))
       return compileE;
     
-    @SuppressWarnings("unchecked")
     E editedE = compileE != null && compileE.editedCompilationUnit != null ? (E) compileE.editedCompilationUnit : PersistableEntity.read(cl, stamper, editedDep);
+    
+    if (doCompile && editedE != null && (editedSourceFiles.isEmpty() || !editedE.visit(hasEditedSourceFilesVisitor))) {
+      editedE.liftEditedToCompiled(); 
+      return (E) editedE.compiledCompilationUnit;
+    }
+    
     return editedE;
   }
   
+  protected void liftEditedToCompiled() throws IOException {
+    ModuleVisitor<Void> liftVisitor = new ModuleVisitor<Void>() {
+      @Override public Void visit(CompilationUnit mod) {
+        if (mod.compiledCompilationUnit == null)
+          throw new IllegalStateException("compiledCompilationUnit of " + mod + " must not be null");
+        
+        CompilationUnit edited = mod;
+        CompilationUnit compiled = mod.compiledCompilationUnit;
+        compiled.init();
+        
+        compiled.sourceArtifacts.putAll(edited.sourceArtifacts);
+        
+        for (CompilationUnit dep : edited.moduleDependencies.keySet())
+          if (dep.compiledCompilationUnit == null)
+            compiled.addModuleDependency(dep);
+          else
+            compiled.addModuleDependency(dep.compiledCompilationUnit);
+        
+        for (CompilationUnit dep : edited.circularModuleDependencies)
+          if (dep.compiledCompilationUnit == null)
+            compiled.addCircularModuleDependency(dep);
+          else
+            compiled.addCircularModuleDependency(dep.compiledCompilationUnit);
+        
+        for (Path p : edited.externalFileDependencies.keySet())
+          compiled.addExternalFileDependency(FileCommands.tryCopyFile(edited.targetDir, compiled.targetDir, p));
+        
+        for (Path p : edited.generatedFiles.keySet())
+          compiled.addGeneratedFile(FileCommands.tryCopyFile(edited.targetDir, compiled.targetDir, p));
+        
+        return null; 
+        }
+      @Override public Void combine(Void t1, Void t2) { return null; }
+      @Override public Void init() { return null; }
+      @Override public boolean cancel(Void t) { return false; }
+    };
+    
+    if (editedCompilationUnit != null)
+      editedCompilationUnit.visit(liftVisitor);
+    else
+      this.visit(liftVisitor);
+  }
+
   @Override
   protected void init() {
     sourceArtifacts = new HashMap<>();
@@ -117,8 +161,8 @@ abstract public class CompilationUnit extends PersistableEntity {
     sourceArtifacts.put(file, stampOfFile);
   }
 
-  public void addExternalFileDependency(RelativePath file) { addExternalFileDependency(file, stamper.stampOf(file)); }
-  public void addExternalFileDependency(RelativePath file, int stampOfFile) {
+  public void addExternalFileDependency(Path file) { addExternalFileDependency(file, stamper.stampOf(file)); }
+  public void addExternalFileDependency(Path file, int stampOfFile) {
     externalFileDependencies.put(file, stampOfFile);
   }
   
@@ -131,7 +175,7 @@ abstract public class CompilationUnit extends PersistableEntity {
     circularModuleDependencies.add(mod);
   }
   
-  public void addModuleDependency(CompilationUnit mod) throws IOException {
+  public void addModuleDependency(CompilationUnit mod) {
     moduleDependencies.put(mod, mod.stamp());
   }
   
@@ -169,7 +213,7 @@ abstract public class CompilationUnit extends PersistableEntity {
     return circularModuleDependencies;
   }
   
-  public Set<RelativePath> getExternalFileDependencies() {
+  public Set<Path> getExternalFileDependencies() {
     return externalFileDependencies.keySet();
   }
   
@@ -213,6 +257,9 @@ abstract public class CompilationUnit extends PersistableEntity {
   protected abstract boolean isConsistentExtend();
   
   protected boolean isConsistentWithSourceArtifacts() {
+    if (sourceArtifacts.isEmpty())
+      return false;
+    
     boolean hasEdits = conistencyCheckEditedSourceArtifacts != null;
     for (Entry<RelativePath, Integer> e : sourceArtifacts.entrySet()) {
       Integer stamp = hasEdits ? conistencyCheckEditedSourceArtifacts.get(e.getKey()) : null;
@@ -374,9 +421,10 @@ abstract public class CompilationUnit extends PersistableEntity {
   @Override
   @SuppressWarnings("unchecked")
   protected void readEntity(ObjectInputStream in) throws IOException, ClassNotFoundException {
+    targetDir = (Path) in.readObject();
     sourceArtifacts = (Map<RelativePath, Integer>) in.readObject();
     generatedFiles = (Map<Path, Integer>) in.readObject();
-    externalFileDependencies = (Map<RelativePath, Integer>) in.readObject();
+    externalFileDependencies = (Map<Path, Integer>) in.readObject();
     
     int moduleDepencyCount = in.readInt();
     moduleDependencies = new HashMap<>(moduleDepencyCount);
@@ -404,6 +452,7 @@ abstract public class CompilationUnit extends PersistableEntity {
 
   @Override
   protected void writeEntity(ObjectOutputStream out) throws IOException {
+    out.writeObject(targetDir);
     out.writeObject(sourceArtifacts = Collections.unmodifiableMap(sourceArtifacts));
     out.writeObject(generatedFiles = Collections.unmodifiableMap(generatedFiles));
     out.writeObject(externalFileDependencies = Collections.unmodifiableMap(externalFileDependencies));
