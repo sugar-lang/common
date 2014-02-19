@@ -105,6 +105,28 @@ abstract public class CompilationUnit extends PersistableEntity {
     return editedE;
   }
   
+  protected void copyContentTo(CompilationUnit compiled) {
+    compiled.sourceArtifacts.putAll(sourceArtifacts);
+    
+    for (CompilationUnit dep : moduleDependencies)
+      if (dep.compiledCompilationUnit == null)
+        compiled.addModuleDependency(dep);
+      else
+        compiled.addModuleDependency(dep.compiledCompilationUnit);
+    
+    for (CompilationUnit dep : circularModuleDependencies)
+      if (dep.compiledCompilationUnit == null)
+        compiled.addCircularModuleDependency(dep);
+      else
+        compiled.addCircularModuleDependency(dep.compiledCompilationUnit);
+    
+    for (Path p : externalFileDependencies.keySet())
+      compiled.addExternalFileDependency(FileCommands.tryCopyFile(targetDir, compiled.targetDir, p));
+    
+    for (Path p : generatedFiles.keySet())
+      compiled.addGeneratedFile(FileCommands.tryCopyFile(targetDir, compiled.targetDir, p));
+  }
+  
   protected void liftEditedToCompiled() throws IOException {
     ModuleVisitor<Void> liftVisitor = new ModuleVisitor<Void>() {
       @Override public Void visit(CompilationUnit mod) {
@@ -114,26 +136,7 @@ abstract public class CompilationUnit extends PersistableEntity {
         CompilationUnit edited = mod;
         CompilationUnit compiled = mod.compiledCompilationUnit;
         compiled.init();
-        
-        compiled.sourceArtifacts.putAll(edited.sourceArtifacts);
-        
-        for (CompilationUnit dep : edited.moduleDependencies)
-          if (dep.compiledCompilationUnit == null)
-            compiled.addModuleDependency(dep);
-          else
-            compiled.addModuleDependency(dep.compiledCompilationUnit);
-        
-        for (CompilationUnit dep : edited.circularModuleDependencies)
-          if (dep.compiledCompilationUnit == null)
-            compiled.addCircularModuleDependency(dep);
-          else
-            compiled.addCircularModuleDependency(dep.compiledCompilationUnit);
-        
-        for (Path p : edited.externalFileDependencies.keySet())
-          compiled.addExternalFileDependency(FileCommands.tryCopyFile(edited.targetDir, compiled.targetDir, p));
-        
-        for (Path p : edited.generatedFiles.keySet())
-          compiled.addGeneratedFile(FileCommands.tryCopyFile(edited.targetDir, compiled.targetDir, p));
+        edited.copyContentTo(compiled);
         
         try {
           compiled.write();

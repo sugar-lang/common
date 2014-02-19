@@ -433,11 +433,14 @@ public class FileCommands {
     RelativePath p = getRelativePath(from, file);
     if (p != null) {
       Path target = new RelativePath(to, p.getRelativePath());
+      if (!FileCommands.exists(p))
+        return target;
       try {
         copyFile(p, target);
         return target;
       } catch (IOException e) {
         e.printStackTrace();
+        return target;
       }
     }
     return file;
