@@ -16,6 +16,7 @@ import java.util.Set;
 import org.sugarj.common.FileCommands;
 import org.sugarj.common.path.Path;
 import org.sugarj.common.path.RelativePath;
+import org.sugarj.util.Pair;
 
 /**
  * Dependency management for modules.
@@ -83,26 +84,36 @@ abstract public class CompilationUnit extends PersistableEntity {
   }
  
   @SuppressWarnings("unchecked")
-  final protected static <E extends CompilationUnit> E read(Class<E> cl, Stamper stamper, Path compileDep, Path editedDep, boolean doCompile, final Map<RelativePath, Integer> editedSourceFiles) throws IOException {
-    ModuleVisitor<Boolean> hasEditedSourceFilesVisitor = new ModuleVisitor<Boolean>() {
-      @Override public Boolean visit(CompilationUnit mod) { return !Collections.disjoint(mod.sourceArtifacts.keySet(), editedSourceFiles.keySet()); }
-      @Override public Boolean combine(Boolean t1, Boolean t2) { return t1 || t2; }
-      @Override public Boolean init() { return false; }
-      @Override public boolean cancel(Boolean t) { return t == true; }
-    };
+  final protected static <E extends CompilationUnit> Pair<E, Boolean> read(Class<E> cl, Stamper stamper, Path compileDep, Path editedDep, boolean doCompile, final Map<RelativePath, Integer> editedSourceFiles) throws IOException {
+//    ModuleVisitor<Boolean> hasEditedSourceFilesVisitor = new ModuleVisitor<Boolean>() {
+//      @Override public Boolean visit(CompilationUnit mod) { return !Collections.disjoint(mod.sourceArtifacts.keySet(), editedSourceFiles.keySet()); }
+//      @Override public Boolean combine(Boolean t1, Boolean t2) { return t1 || t2; }
+//      @Override public Boolean init() { return false; }
+//      @Override public boolean cancel(Boolean t) { return t == true; }
+//    };
     
     E compileE = PersistableEntity.read(cl, stamper, compileDep);
-    if (compileE != null && !compileE.sourceArtifacts.isEmpty() && (editedSourceFiles.isEmpty() || !compileE.visit(hasEditedSourceFilesVisitor)))
-      return compileE;
+    if (compileE != null && compileE.isConsistent(editedSourceFiles))
+      // valid compile is good for compilation and parsing
+      return Pair.create(compileE, true);
     
-    E editedE = compileE != null && compileE.editedCompilationUnit != null ? (E) compileE.editedCompilationUnit : PersistableEntity.read(cl, stamper, editedDep);
+    E editedE;
+    if (compileE != null && compileE.editedCompilationUnit != null)
+      editedE = (E) compileE.editedCompilationUnit;
+    else
+      editedE = PersistableEntity.read(cl, stamper, editedDep);
     
-    if (doCompile && editedE != null && (editedSourceFiles.isEmpty() || !editedE.visit(hasEditedSourceFilesVisitor))) {
+    // valid edit is good for compilation after lifting
+    if (doCompile && editedE != null && editedE.isConsistent(editedSourceFiles)) {
       editedE.liftEditedToCompiled(); 
-      return (E) editedE.compiledCompilationUnit;
+      return Pair.create((E) editedE.compiledCompilationUnit, true);
     }
     
-    return editedE;
+    // valid edit is good for parsing
+    if (!doCompile && editedE != null && editedE.isConsistent(editedSourceFiles))
+      return Pair.create(editedE, true);
+    
+    return Pair.create(doCompile ? compileE : editedE, false);
   }
   
   protected void copyContentTo(CompilationUnit compiled) {
@@ -198,10 +209,10 @@ abstract public class CompilationUnit extends PersistableEntity {
   // Methods for querying dependencies
   // *********************************
 
-  public CompilationUnit getEditedCompilationUnit() {
-    return editedCompilationUnit;
+  public boolean isParsedCompilationUnit() {
+    return compiledCompilationUnit != null;
   }
-
+  
   public boolean dependsOnNoncircularly(CompilationUnit other) {
     return moduleDependencies.contains(other);    
   }
@@ -338,13 +349,10 @@ abstract public class CompilationUnit extends PersistableEntity {
     
     final ModuleVisitor<Boolean> isConsistentEditedVisitor = new ModuleVisitor<Boolean>() {
       @Override public Boolean visit(CompilationUnit mod) {
-        if (mod.editedCompilationUnit == null && Collections.disjoint(mod.sourceArtifacts.keySet(), editedSourceArtifacts.keySet()))
+        if (Collections.disjoint(mod.sourceArtifacts.keySet(), editedSourceArtifacts.keySet()))
           return mod.isConsistentShallow();
         
-        if (mod.editedCompilationUnit == null)
-          return false;
-        
-        CompilationUnit edited = mod.editedCompilationUnit;
+        CompilationUnit edited = mod.editedCompilationUnit == null ? mod : mod.editedCompilationUnit;
         synchronized (edited) {
           edited.conistencyCheckEditedSourceArtifacts = editedSourceArtifacts;
           try {
