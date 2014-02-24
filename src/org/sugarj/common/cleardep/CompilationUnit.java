@@ -438,7 +438,7 @@ abstract public class CompilationUnit extends PersistableEntity {
         if (m1.dependsOnTransitivelyNoncircularly(m2))
           // m2 before m1
           return 1;
-        assert m2.dependsOnTransitivelyNoncircularly(m1);
+        // m2.dependsOnTransitivelyNoncircularly(m1) || m1 and m2 are incomparable;
         // m1 before m2
         return -1;
       }
