@@ -25,7 +25,7 @@ import org.sugarj.util.Pair;
  */
 abstract public class CompilationUnit extends PersistableEntity {
   
-  private static final long serialVersionUID = -5713504273621720673L;
+  public static final long serialVersionUID = -5713504273621720673L;
 
   public CompilationUnit() { /* for deserialization only */ }
 

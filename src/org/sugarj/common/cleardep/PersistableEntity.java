@@ -117,18 +117,21 @@ public abstract class PersistableEntity implements Serializable {
     entity.persistentPath = p;
     entity.setPersisted();
     entity.cacheInMemory();
-
+    
     ObjectInputStream in = new ObjectInputStream(new FileInputStream(p.getAbsolutePath()));
 
     try {
       long id = in.readLong();
-      if (id != serialVersionUID) {
-        new SerializationException("Cannot read old version of persistable entity.").printStackTrace();
+      long readId = clazz.getField("serialVersionUID").getLong(entity);
+      if (id != readId) {
+        inMemory.remove(entity.persistentPath);
         return null;
       }
-        
+      
       entity.readEntity(in);
-    } catch (ClassNotFoundException e) {
+    } catch (ClassNotFoundException | IllegalArgumentException | IllegalAccessException | NoSuchFieldException | SecurityException e) {
+      e.printStackTrace();
+      inMemory.remove(entity.persistentPath);
       throw new IOException(e);
     } finally {
       in.close();
@@ -142,8 +145,11 @@ public abstract class PersistableEntity implements Serializable {
     ObjectOutputStream out = new ObjectOutputStream(new FileOutputStream(persistentPath.getAbsolutePath()));
 
     try {
-      out.writeLong(serialVersionUID);
+      out.writeLong(this.getClass().getField("serialVersionUID").getLong(this));
       writeEntity(out);
+    } catch (IllegalArgumentException | IllegalAccessException | NoSuchFieldException | SecurityException e) {
+      e.printStackTrace();
+      throw new IOException(e);
     } finally {
       setPersisted();
       out.close();
