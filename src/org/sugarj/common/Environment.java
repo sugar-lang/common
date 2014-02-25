@@ -34,6 +34,7 @@ public class Environment implements Serializable {
   public static String classpathsep = File.pathSeparator;
   
   private boolean generateFiles;
+  private boolean forEditor;
   
   private Path cacheDir = null;
 
@@ -193,6 +194,10 @@ public class Environment implements Serializable {
     return generateFiles;
   }
 
+  public boolean forEditor() {
+    return forEditor;
+  }
+
   public void setGenerateFiles(boolean b) {
     if (this.generateFiles == b)
       return;
@@ -203,6 +208,10 @@ public class Environment implements Serializable {
       includePath.add(compileBin);
 
     this.generateFiles = b;
+  }
+  
+  public void setForEditor(boolean forEditor) {
+    this.forEditor = forEditor;
   }
   
   public Stamper getStamper() {

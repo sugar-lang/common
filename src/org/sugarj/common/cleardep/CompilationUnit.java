@@ -45,7 +45,7 @@ abstract public class CompilationUnit extends PersistableEntity {
   // **************************
 
   @SuppressWarnings("unchecked")
-  final protected static <E extends CompilationUnit> E create(Class<E> cl, Stamper stamper, Path compileDep, Path compileTarget, Path editedDep, Path editedTarget, boolean doCompile, Set<RelativePath> sourceFiles, Map<RelativePath, Integer> editedSourceFiles) throws IOException {
+  final protected static <E extends CompilationUnit> E create(Class<E> cl, Stamper stamper, Path compileDep, Path compileTarget, Path editedDep, Path editedTarget, Set<RelativePath> sourceFiles, Mode mode) throws IOException {
     E compileE;
     try {
       compileE = PersistableEntity.read(cl, stamper, compileDep);
@@ -69,11 +69,11 @@ abstract public class CompilationUnit extends PersistableEntity {
       editedE.compiledCompilationUnit = compileE;
     editedE.targetDir = editedTarget;
     
-    E e = doCompile ? compileE : editedE;
+    E e = mode.doCompile ? compileE : editedE;
     e.init();
     
     for (RelativePath sourceFile : sourceFiles) {
-      Integer editedStamp = editedSourceFiles.get(sourceFile);
+      Integer editedStamp = mode.editedSourceFiles == null ? null : mode.editedSourceFiles.get(sourceFile);
       if (editedStamp != null)
         e.addSourceArtifact(sourceFile, editedStamp);
       else
@@ -84,7 +84,7 @@ abstract public class CompilationUnit extends PersistableEntity {
   }
  
   @SuppressWarnings("unchecked")
-  final protected static <E extends CompilationUnit> Pair<E, Boolean> read(Class<E> cl, Stamper stamper, Path compileDep, Path editedDep, boolean doCompile, final Map<RelativePath, Integer> editedSourceFiles) throws IOException {
+  final protected static <E extends CompilationUnit> Pair<E, Boolean> read(Class<E> cl, Stamper stamper, Path compileDep, Path editedDep, Mode mode) throws IOException {
 //    ModuleVisitor<Boolean> hasEditedSourceFilesVisitor = new ModuleVisitor<Boolean>() {
 //      @Override public Boolean visit(CompilationUnit mod) { return !Collections.disjoint(mod.sourceArtifacts.keySet(), editedSourceFiles.keySet()); }
 //      @Override public Boolean combine(Boolean t1, Boolean t2) { return t1 || t2; }
@@ -93,7 +93,7 @@ abstract public class CompilationUnit extends PersistableEntity {
 //    };
     
     E compileE = PersistableEntity.read(cl, stamper, compileDep);
-    if (compileE != null && compileE.isConsistent(editedSourceFiles))
+    if (compileE != null && compileE.isConsistent(mode))
       // valid compile is good for compilation and parsing
       return Pair.create(compileE, true);
     
@@ -104,16 +104,16 @@ abstract public class CompilationUnit extends PersistableEntity {
       editedE = PersistableEntity.read(cl, stamper, editedDep);
     
     // valid edit is good for compilation after lifting
-    if (doCompile && editedE != null && editedE.isConsistent(editedSourceFiles)) {
+    if (mode.doCompile && editedE != null && editedE.isConsistent(mode)) {
       editedE.liftEditedToCompiled(); 
       return Pair.create((E) editedE.compiledCompilationUnit, true);
     }
     
     // valid edit is good for parsing
-    if (!doCompile && editedE != null && editedE.isConsistent(editedSourceFiles))
+    if (!mode.doCompile && editedE != null && editedE.isConsistent(mode))
       return Pair.create(editedE, true);
     
-    return Pair.create(doCompile ? compileE : editedE, false);
+    return Pair.create(mode.doCompile ? compileE : editedE, false);
   }
   
   protected void copyContentTo(CompilationUnit compiled) {
@@ -292,15 +292,15 @@ abstract public class CompilationUnit extends PersistableEntity {
   // Methods for checking compilation consistency
   // ********************************************
 
-  protected abstract boolean isConsistentExtend();
+  protected abstract boolean isConsistentExtend(Mode mode);
   
-  protected boolean isConsistentWithSourceArtifacts() {
+  protected boolean isConsistentWithSourceArtifacts(Mode mode) {
     if (sourceArtifacts.isEmpty())
       return false;
     
-    boolean hasEdits = conistencyCheckEditedSourceArtifacts != null;
+    boolean hasEdits = mode.editedSourceFiles != null;
     for (Entry<RelativePath, Integer> e : sourceArtifacts.entrySet()) {
-      Integer stamp = hasEdits ? conistencyCheckEditedSourceArtifacts.get(e.getKey()) : null;
+      Integer stamp = hasEdits ? mode.editedSourceFiles.get(e.getKey()) : null;
       if (stamp != null && !stamp.equals(e.getValue()))
         return false;
       else if (stamp == null && (!FileCommands.exists(e.getKey()) || e.getValue() != stamper.stampOf(e.getKey())))
@@ -310,11 +310,11 @@ abstract public class CompilationUnit extends PersistableEntity {
     return true;
   }
 
-  public boolean isConsistentShallow() {
+  public boolean isConsistentShallow(Mode mode) {
     if (hasPersistentVersionChanged())
       return false;
     
-    if (!isConsistentWithSourceArtifacts())
+    if (!isConsistentWithSourceArtifacts(mode))
       return false;
     
     for (Entry<Path, Integer> e : generatedFiles.entrySet())
@@ -325,49 +325,20 @@ abstract public class CompilationUnit extends PersistableEntity {
       if (stamper.stampOf(e.getKey()) != e.getValue())
         return false;
 
-    if (!isConsistentExtend())
+    if (!isConsistentExtend(mode))
       return false;
 
     return true;
   }
 
-  private final ModuleVisitor<Boolean> isConsistentVisitor = new ModuleVisitor<Boolean>() {
-    @Override public Boolean visit(CompilationUnit mod) { return mod.isConsistentShallow(); }
-    @Override public Boolean combine(Boolean t1, Boolean t2) { return t1 && t2; }
-    @Override public Boolean init() { return true; }
-    @Override public boolean cancel(Boolean t) { return !t; }
-  }; 
-
-  public boolean isConsistent() {
-    return visit(isConsistentVisitor);
-  }
-  
-  private Map<? extends Path, Integer> conistencyCheckEditedSourceArtifacts;
-  public boolean isConsistent(final Map<? extends Path, Integer> editedSourceArtifacts) {
-    if (editedSourceArtifacts.isEmpty())
-      return isConsistent();
-    
-    final ModuleVisitor<Boolean> isConsistentEditedVisitor = new ModuleVisitor<Boolean>() {
-      @Override public Boolean visit(CompilationUnit mod) {
-        if (Collections.disjoint(mod.sourceArtifacts.keySet(), editedSourceArtifacts.keySet()))
-          return mod.isConsistentShallow();
-        
-        CompilationUnit edited = mod.editedCompilationUnit == null ? mod : mod.editedCompilationUnit;
-        synchronized (edited) {
-          edited.conistencyCheckEditedSourceArtifacts = editedSourceArtifacts;
-          try {
-            return edited.isConsistentShallow();
-          } finally {
-            edited.conistencyCheckEditedSourceArtifacts = null;
-          }
-        } 
-      }
+  public boolean isConsistent(final Mode mode) {
+    ModuleVisitor<Boolean> isConsistentVisitor = new ModuleVisitor<Boolean>() {
+      @Override public Boolean visit(CompilationUnit mod) { return mod.isConsistentShallow(mode); }
       @Override public Boolean combine(Boolean t1, Boolean t2) { return t1 && t2; }
       @Override public Boolean init() { return true; }
       @Override public boolean cancel(Boolean t) { return !t; }
     }; 
-    
-    return visit(isConsistentEditedVisitor);
+    return visit(isConsistentVisitor);
   }
   
   
