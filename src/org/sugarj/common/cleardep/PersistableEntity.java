@@ -10,8 +10,8 @@ import java.lang.ref.SoftReference;
 import java.util.HashMap;
 import java.util.Map;
 
-import org.eclipse.core.commands.SerializationException;
 import org.sugarj.common.FileCommands;
+import org.sugarj.common.Log;
 import org.sugarj.common.path.Path;
 
 /**
@@ -129,10 +129,11 @@ public abstract class PersistableEntity implements Serializable {
       }
       
       entity.readEntity(in);
-    } catch (ClassNotFoundException | IllegalArgumentException | IllegalAccessException | NoSuchFieldException | SecurityException e) {
-      e.printStackTrace();
+    } catch (IOException | ClassNotFoundException | IllegalArgumentException | IllegalAccessException | NoSuchFieldException | SecurityException e) {
+      Log.log.logErr("Could not read module's dependency file: " + p, Log.IMPORT);
       inMemory.remove(entity.persistentPath);
-      throw new IOException(e);
+      FileCommands.delete(entity.persistentPath);
+      return null;
     } finally {
       in.close();
     }

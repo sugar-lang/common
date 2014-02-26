@@ -14,6 +14,8 @@ import java.util.Map.Entry;
 import java.util.Set;
 
 import org.sugarj.common.FileCommands;
+import org.sugarj.common.cleardep.mode.DoCompileMode;
+import org.sugarj.common.cleardep.mode.Mode;
 import org.sugarj.common.path.Path;
 import org.sugarj.common.path.RelativePath;
 import org.sugarj.util.Pair;
@@ -45,7 +47,7 @@ abstract public class CompilationUnit extends PersistableEntity {
   // **************************
 
   @SuppressWarnings("unchecked")
-  final protected static <E extends CompilationUnit> E create(Class<E> cl, Stamper stamper, Path compileDep, Path compileTarget, Path editedDep, Path editedTarget, Set<RelativePath> sourceFiles, Mode mode) throws IOException {
+  final protected static <E extends CompilationUnit> E create(Class<E> cl, Stamper stamper, Path compileDep, Path compileTarget, Path editedDep, Path editedTarget, Set<RelativePath> sourceFiles, Map<RelativePath, Integer> editedSourceFiles, Mode mode) throws IOException {
     E compileE;
     try {
       compileE = PersistableEntity.read(cl, stamper, compileDep);
@@ -69,11 +71,11 @@ abstract public class CompilationUnit extends PersistableEntity {
       editedE.compiledCompilationUnit = compileE;
     editedE.targetDir = editedTarget;
     
-    E e = mode.doCompile ? compileE : editedE;
+    E e = DoCompileMode.isDoCompile(mode) ? compileE : editedE;
     e.init();
     
     for (RelativePath sourceFile : sourceFiles) {
-      Integer editedStamp = mode.editedSourceFiles == null ? null : mode.editedSourceFiles.get(sourceFile);
+      Integer editedStamp = editedSourceFiles == null ? null : editedSourceFiles.get(sourceFile);
       if (editedStamp != null)
         e.addSourceArtifact(sourceFile, editedStamp);
       else
@@ -84,16 +86,9 @@ abstract public class CompilationUnit extends PersistableEntity {
   }
  
   @SuppressWarnings("unchecked")
-  final protected static <E extends CompilationUnit> Pair<E, Boolean> read(Class<E> cl, Stamper stamper, Path compileDep, Path editedDep, Mode mode) throws IOException {
-//    ModuleVisitor<Boolean> hasEditedSourceFilesVisitor = new ModuleVisitor<Boolean>() {
-//      @Override public Boolean visit(CompilationUnit mod) { return !Collections.disjoint(mod.sourceArtifacts.keySet(), editedSourceFiles.keySet()); }
-//      @Override public Boolean combine(Boolean t1, Boolean t2) { return t1 || t2; }
-//      @Override public Boolean init() { return false; }
-//      @Override public boolean cancel(Boolean t) { return t == true; }
-//    };
-    
+  final protected static <E extends CompilationUnit> Pair<E, Boolean> read(Class<E> cl, Stamper stamper, Path compileDep, Path editedDep, Map<RelativePath, Integer> editedSourceFiles, Mode mode) throws IOException {
     E compileE = PersistableEntity.read(cl, stamper, compileDep);
-    if (compileE != null && compileE.isConsistent(mode))
+    if (compileE != null && compileE.isConsistent(editedSourceFiles, mode))
       // valid compile is good for compilation and parsing
       return Pair.create(compileE, true);
     
@@ -104,16 +99,16 @@ abstract public class CompilationUnit extends PersistableEntity {
       editedE = PersistableEntity.read(cl, stamper, editedDep);
     
     // valid edit is good for compilation after lifting
-    if (mode.doCompile && editedE != null && editedE.isConsistent(mode)) {
+    if (DoCompileMode.isDoCompile(mode) && editedE != null && editedE.isConsistent(editedSourceFiles, mode)) {
       editedE.liftEditedToCompiled(); 
       return Pair.create((E) editedE.compiledCompilationUnit, true);
     }
     
     // valid edit is good for parsing
-    if (!mode.doCompile && editedE != null && editedE.isConsistent(mode))
+    if (!DoCompileMode.isDoCompile(mode) && editedE != null && editedE.isConsistent(editedSourceFiles, mode))
       return Pair.create(editedE, true);
     
-    return Pair.create(mode.doCompile ? compileE : editedE, false);
+    return Pair.create(DoCompileMode.isDoCompile(mode) ? compileE : editedE, false);
   }
   
   protected void copyContentTo(CompilationUnit compiled) {
@@ -140,9 +135,10 @@ abstract public class CompilationUnit extends PersistableEntity {
   
   protected void liftEditedToCompiled() throws IOException {
     ModuleVisitor<Void> liftVisitor = new ModuleVisitor<Void>() {
-      @Override public Void visit(CompilationUnit mod) {
+      @Override public Void visit(CompilationUnit mod, Mode mode) {
         if (mod.compiledCompilationUnit == null)
-          throw new IllegalStateException("compiledCompilationUnit of " + mod + " must not be null");
+          return null;
+//          throw new IllegalStateException("compiledCompilationUnit of " + mod + " must not be null");
         
         CompilationUnit edited = mod;
         CompilationUnit compiled = mod.compiledCompilationUnit;
@@ -294,13 +290,13 @@ abstract public class CompilationUnit extends PersistableEntity {
 
   protected abstract boolean isConsistentExtend(Mode mode);
   
-  protected boolean isConsistentWithSourceArtifacts(Mode mode) {
+  protected boolean isConsistentWithSourceArtifacts(Map<RelativePath, Integer> editedSourceFiles, Mode mode) {
     if (sourceArtifacts.isEmpty())
       return false;
     
-    boolean hasEdits = mode.editedSourceFiles != null;
+    boolean hasEdits = editedSourceFiles != null;
     for (Entry<RelativePath, Integer> e : sourceArtifacts.entrySet()) {
-      Integer stamp = hasEdits ? mode.editedSourceFiles.get(e.getKey()) : null;
+      Integer stamp = hasEdits ? editedSourceFiles.get(e.getKey()) : null;
       if (stamp != null && !stamp.equals(e.getValue()))
         return false;
       else if (stamp == null && (!FileCommands.exists(e.getKey()) || e.getValue() != stamper.stampOf(e.getKey())))
@@ -310,11 +306,11 @@ abstract public class CompilationUnit extends PersistableEntity {
     return true;
   }
 
-  public boolean isConsistentShallow(Mode mode) {
+  public boolean isConsistentShallow(Map<RelativePath, Integer> editedSourceFiles, Mode mode) {
     if (hasPersistentVersionChanged())
       return false;
     
-    if (!isConsistentWithSourceArtifacts(mode))
+    if (!isConsistentWithSourceArtifacts(editedSourceFiles, mode))
       return false;
     
     for (Entry<Path, Integer> e : generatedFiles.entrySet())
@@ -331,14 +327,14 @@ abstract public class CompilationUnit extends PersistableEntity {
     return true;
   }
 
-  public boolean isConsistent(final Mode mode) {
+  public boolean isConsistent(final Map<RelativePath, Integer> editedSourceFiles, Mode mode) {
     ModuleVisitor<Boolean> isConsistentVisitor = new ModuleVisitor<Boolean>() {
-      @Override public Boolean visit(CompilationUnit mod) { return mod.isConsistentShallow(mode); }
+      @Override public Boolean visit(CompilationUnit mod, Mode mode) { return mod.isConsistentShallow(editedSourceFiles, mode); }
       @Override public Boolean combine(Boolean t1, Boolean t2) { return t1 && t2; }
       @Override public Boolean init() { return true; }
       @Override public boolean cancel(Boolean t) { return !t; }
     }; 
-    return visit(isConsistentVisitor);
+    return visit(isConsistentVisitor, mode);
   }
   
   
@@ -347,22 +343,26 @@ abstract public class CompilationUnit extends PersistableEntity {
   // *************************************
 
   public static interface ModuleVisitor<T> {
-    public T visit(CompilationUnit mod);
+    public T visit(CompilationUnit mod, Mode mode);
     public T combine(T t1, T t2);
     public T init();
     public boolean cancel(T t);
   }
 
-  private Map<CompilationUnit, Integer> computeRanks() {
+  private Pair<Map<CompilationUnit, Integer>, Map<CompilationUnit, Mode>> computeRanks(Mode thisMode) {
     LinkedList<CompilationUnit> queue = new LinkedList<>();
     Map<CompilationUnit, Integer> ranks = new HashMap<>();
+    Map<CompilationUnit, Mode> modes = new HashMap<>();
     
     queue.add(this);
     ranks.put(this, 0);
+    if (thisMode != null)
+      modes.put(this, thisMode);
     
     while (!queue.isEmpty()) {
       CompilationUnit mod = queue.remove();
-      int rMod = ranks.get(mod);
+      int rank = ranks.get(mod);
+      Mode mode = modes.get(mod);
       
       Set<CompilationUnit> deps = new HashSet<>();
       deps.addAll(mod.getModuleDependencies());
@@ -371,22 +371,25 @@ abstract public class CompilationUnit extends PersistableEntity {
 //        if (dep.editedCompilationUnit != null && ranks.containsKey(dep.editedCompilationUnit))
 //          dep = dep.editedCompilationUnit;
         
-        Integer rDep = ranks.get(dep);
-        if (rDep != null) {
-          ranks.put(dep, Math.min(rDep, rMod));
-          ranks.put(mod, Math.min(rDep, rMod));
+        Integer depRank = ranks.get(dep);
+        if (depRank != null) {
+          ranks.put(dep, Math.min(depRank, rank));
+          ranks.put(mod, Math.min(depRank, rank));
         }
         else {
-          rDep = rMod - 1;
-          ranks.put(dep,  rDep);
+          depRank = rank - 1;
+          ranks.put(dep, depRank);
+          if (mode != null)
+            modes.put(dep, mode.getModeForRequiredModules());
           if (!queue.contains(dep))
             queue.addFirst(dep);
         }
       }
     }
     
-    return ranks;
+    return Pair.create(ranks, modes);
   }
+  
   
   /**
    * Visits the module graph starting from this module, satisfying the following properties:
@@ -396,8 +399,11 @@ abstract public class CompilationUnit extends PersistableEntity {
    *         (ii) M1 and M2 transitively have a circular dependency and
    *              M1 transitively imports M2 using `moduleDependencies` only.   
    */
-  public <T> T visit(ModuleVisitor<T> visitor) {
-    final Map<CompilationUnit, Integer> ranks = computeRanks();
+  public <T> T visit(ModuleVisitor<T> visitor) { return visit(visitor, null); }
+  public <T> T visit(ModuleVisitor<T> visitor, Mode thisMode) {
+    Pair<Map<CompilationUnit, Integer>, Map<CompilationUnit, Mode>> p = computeRanks(thisMode);
+    final Map<CompilationUnit, Integer> ranks = p.a;
+    Map<CompilationUnit, Mode> modes = p.b;
     
     Comparator<CompilationUnit> comparator = new Comparator<CompilationUnit>() {
       public int compare(CompilationUnit m1, CompilationUnit m2) { 
@@ -420,7 +426,7 @@ abstract public class CompilationUnit extends PersistableEntity {
     
     T result = visitor.init();
     for (CompilationUnit mod : mods) {
-      T newResult = visitor.visit(mod);
+      T newResult = visitor.visit(mod, modes.get(mod));
       result = visitor.combine(result, newResult);
       if (visitor.cancel(result))
         break;
@@ -449,6 +455,8 @@ abstract public class CompilationUnit extends PersistableEntity {
       Class<? extends CompilationUnit> cl = (Class<? extends CompilationUnit>) getClass().getClassLoader().loadClass(clName);
       Path path = (Path) in.readObject();
       CompilationUnit mod = PersistableEntity.read(cl, stamper, path);
+      if (mod == null)
+        throw new IOException("Required module cannot be read: " + path);
       moduleDependencies.add(mod);
     }
     
@@ -460,7 +468,7 @@ abstract public class CompilationUnit extends PersistableEntity {
       Path path = (Path) in.readObject();
       CompilationUnit mod = PersistableEntity.read(cl, stamper, path);
       if (mod == null)
-        throw new IllegalStateException("Required module cannot be read: " + path);
+        throw new IOException("Required module cannot be read: " + path);
       circularModuleDependencies.add(mod);
     }
   }
