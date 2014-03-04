@@ -12,7 +12,6 @@ import java.util.Map;
 import java.util.WeakHashMap;
 
 import org.spoofax.interpreter.terms.IStrategoTerm;
-import org.sugarj.common.Renaming.FromTo;
 import org.sugarj.common.cleardep.Stamper;
 import org.sugarj.common.cleardep.mode.DoCompileMode;
 import org.sugarj.common.cleardep.mode.ForEditorMode;
@@ -66,11 +65,6 @@ public class Environment implements Serializable {
   
   private List<Path> sourcePath = new LinkedList<Path>();
   private List<Path> includePath = new LinkedList<Path>();
-  
-  /**
-   * List of renamings that need to be applied during compilation.
-   */
-  private List<FromTo> renamings = new LinkedList<FromTo>();
   
   public Environment(boolean generateFiles, Path stdlibDirPath, Stamper stamper) {
     this.stamper = stamper;
@@ -183,14 +177,6 @@ public class Environment implements Serializable {
   
   public RelativePath createOutPath(String relativePath) {
     return new RelativePath(getBin(), relativePath);
-  }
-
-  public List<FromTo> getRenamings() {
-    return renamings;
-  }
-  
-  public void setRenamings(List<FromTo> renamings) {
-    this.renamings = renamings;
   }
 
   public boolean doGenerateFiles() {
