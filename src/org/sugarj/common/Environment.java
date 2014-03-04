@@ -13,6 +13,9 @@ import java.util.WeakHashMap;
 
 import org.spoofax.interpreter.terms.IStrategoTerm;
 import org.sugarj.common.cleardep.Stamper;
+import org.sugarj.common.cleardep.mode.DoCompileMode;
+import org.sugarj.common.cleardep.mode.ForEditorMode;
+import org.sugarj.common.cleardep.mode.Mode;
 import org.sugarj.common.path.AbsolutePath;
 import org.sugarj.common.path.Path;
 import org.sugarj.common.path.RelativePath;
@@ -216,5 +219,9 @@ public class Environment implements Serializable {
   
   public Stamper getStamper() {
     return stamper;
+  }
+  
+  public Mode getMode() {
+    return new ForEditorMode(new DoCompileMode(null, generateFiles), forEditor);
   }
 }

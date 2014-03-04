@@ -18,6 +18,6 @@ public class Pair<A, B> implements Serializable {
   }
   
   public String toString() {
-    return "(" + a.toString() + ", " + b.toString() + ")";
+    return "(" + (a == null ? "null" : a.toString()) + ", " + (b == null ? "null" : b.toString()) + ")";
   }
 }
