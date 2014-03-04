@@ -8,8 +8,8 @@ import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 
+import org.sugarj.common.Renaming.FromTo;
 import org.sugarj.common.path.RelativePath;
-import org.sugarj.util.Renaming;
 
 /**
  * @author Sebastian Erdweg <seba at informatik uni-marburg de>
@@ -28,7 +28,7 @@ public class StringCommands {
     return b.toString();
   }
 
-  public static String rename(String in, Renaming ren) {
+  public static String rename(String in, FromTo ren) {
     if (in.equals(ren.from))
       return ren.to;
     
@@ -39,11 +39,11 @@ public class StringCommands {
     return in;
   }
   
-  public static List<String> renameAll(List<? extends Object> in, List<Renaming> renamings) {
+  public static List<String> renameAll(List<? extends Object> in, List<FromTo> renamings) {
     List<String> res = new LinkedList<String>();
     for (Object o : in) {
       String s = o.toString();
-      for (Renaming ren : renamings)
+      for (FromTo ren : renamings)
         s = rename(s, ren);
       res.add(s);
     }
