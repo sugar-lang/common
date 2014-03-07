@@ -54,7 +54,8 @@ public abstract class PersistableEntity implements Serializable {
   }
   
   final public int stamp() {
-    assert isPersisted();
+    if (!isPersisted())
+      throw new RuntimeException("Cannot extract stamp from non-persisted module");
     return persistentStamp;
   }
   
