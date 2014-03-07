@@ -15,6 +15,6 @@ public class DoCompileMode extends Mode {
   
   @Override
   public Mode getModeForRequiredModules() {
-    return new DoCompileMode(getParentsmodeForRequiredModules(), true);
+    return new DoCompileMode(getParentsmodeForRequiredModules(), doCompile);
   }
 }
