@@ -187,6 +187,16 @@ abstract public class CompilationUnit extends PersistableEntity {
     externalFileDependencies.put(file, stampOfFile);
   }
   
+  public void addExternalFileDependencyLate(Path file) { addExternalFileDependencyLate(file, stamper.stampOf(file)); }
+  public void addExternalFileDependencyLate(Path file, int stampOfFile) {
+    try {
+      externalFileDependencies.put(file, stampOfFile);
+    } catch (UnsupportedOperationException e) {
+      externalFileDependencies = new HashMap<>(externalFileDependencies);
+      externalFileDependencies.put(file, stampOfFile);
+    }
+  }
+  
   public void addGeneratedFile(Path file) { addGeneratedFile(file, stamper.stampOf(file)); }
   public void addGeneratedFile(Path file, int stampOfFile) {
     generatedFiles.put(file, stampOfFile);
