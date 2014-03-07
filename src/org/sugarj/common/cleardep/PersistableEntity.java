@@ -13,6 +13,7 @@ import java.util.Map;
 import org.sugarj.common.FileCommands;
 import org.sugarj.common.Log;
 import org.sugarj.common.path.Path;
+import org.sugarj.common.path.RelativePath;
 
 /**
  * @author Sebastian Erdweg
@@ -182,5 +183,11 @@ public abstract class PersistableEntity implements Serializable {
     if (persistentPath != null)
       return super.toString() + " at " + persistentPath;
     return super.toString();
+  }
+  
+  public String getName() {
+    if (persistentPath instanceof RelativePath)
+      return FileCommands.dropExtension(((RelativePath) persistentPath).getRelativePath());
+    return persistentPath.getAbsolutePath();
   }
 }
