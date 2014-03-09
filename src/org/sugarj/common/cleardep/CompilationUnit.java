@@ -31,9 +31,11 @@ abstract public class CompilationUnit extends PersistableEntity {
 
   public CompilationUnit() { /* for deserialization only */ }
 
-  // At most one of `compiledCompilationUnit` and `editedCompilationUnit` is not null.
+  // Exactly one of `compiledCompilationUnit` and `editedCompilationUnit` is not null.
   protected CompilationUnit compiledCompilationUnit;
   protected CompilationUnit editedCompilationUnit;
+  
+  protected Synthesizer syn;
   
   protected Path targetDir;
   protected Map<RelativePath, Integer> sourceArtifacts;
@@ -47,7 +49,7 @@ abstract public class CompilationUnit extends PersistableEntity {
   // **************************
 
   @SuppressWarnings("unchecked")
-  final protected static <E extends CompilationUnit> E create(Class<E> cl, Stamper stamper, Path compileDep, Path compileTarget, Path editedDep, Path editedTarget, Set<RelativePath> sourceFiles, Map<RelativePath, Integer> editedSourceFiles, Mode mode) throws IOException {
+  final protected static <E extends CompilationUnit> E create(Class<E> cl, Stamper stamper, Path compileDep, Path compileTarget, Path editedDep, Path editedTarget, Set<RelativePath> sourceFiles, Map<RelativePath, Integer> editedSourceFiles, Mode mode, Synthesizer syn) throws IOException {
     E compileE;
     try {
       compileE = PersistableEntity.read(cl, stamper, compileDep);
@@ -73,6 +75,9 @@ abstract public class CompilationUnit extends PersistableEntity {
     
     E e = DoCompileMode.isDoCompile(mode) ? compileE : editedE;
     e.init();
+    e.syn = syn;
+    if (syn != null)
+      syn.markSynthesized(e);
     
     for (RelativePath sourceFile : sourceFiles) {
       Integer editedStamp = editedSourceFiles == null ? null : editedSourceFiles.get(sourceFile);
@@ -292,6 +297,10 @@ abstract public class CompilationUnit extends PersistableEntity {
     
     return dependencies;
   }
+  
+  public Synthesizer getSynthesizer() {
+    return syn;
+  }
 
   
   // ********************************************
@@ -481,6 +490,23 @@ abstract public class CompilationUnit extends PersistableEntity {
         throw new IOException("Required module cannot be read: " + path);
       circularModuleDependencies.add(mod);
     }
+    
+    boolean hasSyn = in.readBoolean();
+    if (hasSyn) {
+      Set<CompilationUnit> modules = new HashSet<CompilationUnit>();
+      int modulesCount = in.readInt();
+      for (int i = 0; i < modulesCount; i++) {
+        String clName = (String) in.readObject();
+        Class<? extends CompilationUnit> cl = (Class<? extends CompilationUnit>) getClass().getClassLoader().loadClass(clName);
+        Path path = (Path) in.readObject();
+        CompilationUnit mod = PersistableEntity.read(cl, stamper, path);
+        if (mod == null)
+          throw new IOException("Required module cannot be read: " + path);
+        modules.add(mod);
+      }
+      Map<Path, Integer> files = (Map<Path, Integer>) in.readObject();
+      syn = new Synthesizer(modules, files);
+    }
   }
 
   @Override
@@ -501,6 +527,17 @@ abstract public class CompilationUnit extends PersistableEntity {
     for (CompilationUnit mod : circularModuleDependencies) {
       out.writeObject(mod.getClass().getCanonicalName());
       out.writeObject(mod.persistentPath);
+    }
+    
+    out.writeBoolean(syn != null);
+    if (syn != null) {
+      out.writeInt(syn.modules.size());
+      for (CompilationUnit mod : syn.modules) {
+        out.writeObject(mod.getClass().getCanonicalName());
+        out.writeObject(mod.persistentPath);
+      }
+      
+      out.writeObject(syn.files);
     }
   }
 }
