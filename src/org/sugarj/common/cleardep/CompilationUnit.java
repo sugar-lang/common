@@ -425,18 +425,26 @@ abstract public class CompilationUnit extends PersistableEntity {
     Map<CompilationUnit, Mode> modes = p.b;
     
     Comparator<CompilationUnit> comparator = new Comparator<CompilationUnit>() {
-      public int compare(CompilationUnit m1, CompilationUnit m2) { 
+      public int compare(CompilationUnit m1, CompilationUnit m2) {
+        if (m1 == m2)
+          return 0;
+        
         int r1 = ranks.get(m1);
         int r2 = ranks.get(m2);
         int c = Integer.compare(r1, r2);
         if (c != 0)
           return c;
+        
         if (m1.dependsOnTransitivelyNoncircularly(m2))
           // m2 before m1
           return 1;
-        // m2.dependsOnTransitivelyNoncircularly(m1) || m1 and m2 are incomparable;
-        // m1 before m2
-        return -1;
+
+        if (m2.dependsOnTransitivelyNoncircularly(m1))
+          // m1 before m2
+          return -1;
+        
+        // m1 and m2 are incomparable;
+        return 0;
       }
     }; 
     

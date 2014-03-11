@@ -98,6 +98,9 @@ public abstract class PersistableEntity implements Serializable {
   }
   
   final protected static <E extends PersistableEntity> E read(Class<E> clazz, Stamper stamper, Path p) throws IOException {
+    if (p == null)
+      return null;
+    
     E entity = readFromMemoryCache(clazz, p);
     if (entity != null && !entity.hasPersistentVersionChanged())
       return entity;
