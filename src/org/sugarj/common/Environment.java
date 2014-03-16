@@ -33,6 +33,7 @@ public class Environment implements Serializable {
   public static String classpathsep = File.pathSeparator;
   
   private boolean generateFiles;
+  private boolean terminateJVMAfterProcessing = true;
   
   private Path cacheDir = null;
 
@@ -199,4 +200,13 @@ public class Environment implements Serializable {
 
     this.generateFiles = b;
   }
+
+  public boolean isTerminateJVMAfterProcessing() {
+    return terminateJVMAfterProcessing;
+  }
+
+  public void setTerminateJVMAfterProcessing(boolean terminateJVMAfterProcessing) {
+    this.terminateJVMAfterProcessing = terminateJVMAfterProcessing;
+  }
+  
 }
