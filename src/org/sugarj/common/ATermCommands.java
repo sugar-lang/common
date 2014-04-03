@@ -108,6 +108,9 @@ public class ATermCommands {
   }
   
   public static IStrategoTerm atermFromString(String s) {
+    if (s == null)
+      return null;
+    
     return new TAFTermReader(factory).parseFromString(s);
   }
 
@@ -124,6 +127,9 @@ public class ATermCommands {
   }
   
   public static String atermToString(IStrategoTerm aterm) {
+    if (aterm == null)
+      return null;
+    
     InlinePrinter printer = new InlinePrinter();
     aterm.prettyPrint(printer);
     return printer.getString();

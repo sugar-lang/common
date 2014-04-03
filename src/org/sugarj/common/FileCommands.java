@@ -383,6 +383,17 @@ public class FileCommands {
     
     return 0;
   }
+  
+  public static int tryFileHash(Path file) {
+    int hash;
+    try {
+      hash = FileCommands.fileHash(file);
+    } catch (IOException e) {
+      e.printStackTrace();
+      hash = -1;
+    }
+    return hash;
+  }
 
   public static boolean isEmptyFile(Path prog) throws IOException {
     FileInputStream in = null;
@@ -418,13 +429,20 @@ public class FileCommands {
     return null;
   }
   
-  public static Path tryCopyFile(Path from, Path to, Path file) throws IOException {
+  public static Path tryCopyFile(Path from, Path to, Path file) {
     RelativePath p = getRelativePath(from, file);
-    Path target = file;
     if (p != null) {
-      target = new RelativePath(to, p.getRelativePath());
-      copyFile(p, target);
+      Path target = new RelativePath(to, p.getRelativePath());
+      if (!FileCommands.exists(p))
+        return target;
+      try {
+        copyFile(p, target);
+        return target;
+      } catch (IOException e) {
+        e.printStackTrace();
+        return target;
+      }
     }
-    return target;
+    return file;
   }
 }

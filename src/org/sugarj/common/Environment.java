@@ -12,10 +12,13 @@ import java.util.Map;
 import java.util.WeakHashMap;
 
 import org.spoofax.interpreter.terms.IStrategoTerm;
+import org.sugarj.common.cleardep.Stamper;
+import org.sugarj.common.cleardep.mode.DoCompileMode;
+import org.sugarj.common.cleardep.mode.ForEditorMode;
+import org.sugarj.common.cleardep.mode.Mode;
 import org.sugarj.common.path.AbsolutePath;
 import org.sugarj.common.path.Path;
 import org.sugarj.common.path.RelativePath;
-import org.sugarj.util.Renaming;
 
 
 /**
@@ -33,6 +36,8 @@ public class Environment implements Serializable {
   public static String classpathsep = File.pathSeparator;
   
   private boolean generateFiles;
+  private boolean forEditor;
+
   private boolean terminateJVMAfterProcessing = true;
   
   private Path cacheDir = null;
@@ -40,6 +45,8 @@ public class Environment implements Serializable {
   private Path root = new AbsolutePath(".");
   
   private Path compileBin = new AbsolutePath(".");
+  
+  private Stamper stamper; 
 
   /**
    * The directory in which to place files at parse time.
@@ -61,12 +68,9 @@ public class Environment implements Serializable {
   private List<Path> sourcePath = new LinkedList<Path>();
   private List<Path> includePath = new LinkedList<Path>();
   
-  /**
-   * List of renamings that need to be applied during compilation.
-   */
-  private List<Renaming> renamings = new LinkedList<Renaming>();
-  
-  public Environment(boolean generateFiles, Path stdlibDirPath) {
+  public Environment(boolean generateFiles, Path stdlibDirPath, Stamper stamper) {
+    this.stamper = stamper;
+    
     includePath.add(compileBin);
     includePath.add(stdlibDirPath);
     
@@ -177,16 +181,12 @@ public class Environment implements Serializable {
     return new RelativePath(getBin(), relativePath);
   }
 
-  public List<Renaming> getRenamings() {
-    return renamings;
-  }
-  
-  public void setRenamings(List<Renaming> renamings) {
-    this.renamings = renamings;
-  }
-
   public boolean doGenerateFiles() {
     return generateFiles;
+  }
+
+  public boolean forEditor() {
+    return forEditor;
   }
 
   public void setGenerateFiles(boolean b) {
@@ -209,4 +209,15 @@ public class Environment implements Serializable {
     this.terminateJVMAfterProcessing = terminateJVMAfterProcessing;
   }
   
+  public void setForEditor(boolean forEditor) {
+    this.forEditor = forEditor;
+  }
+  
+  public Stamper getStamper() {
+    return stamper;
+  }
+  
+  public Mode getMode() {
+    return new ForEditorMode(new DoCompileMode(null, generateFiles), forEditor);
+  }
 }
