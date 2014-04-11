@@ -157,8 +157,8 @@ public abstract class PersistableEntity implements Serializable {
       e.printStackTrace();
       throw new IOException(e);
     } finally {
-      setPersisted();
       out.close();
+      setPersisted();
     }
   }
   
