@@ -8,12 +8,25 @@ import java.util.Set;
 import org.sugarj.common.path.Path;
 
 /**
+ * <ul>
+ * <li>Used to dependency-track modules (called A$B) that are a product of a transformation (B) on another module (A)
+ * <li>Holds references to the required modules (A and B)
+ * <li>The module that includes the transformed module has only a dependency on A$B
+ * <li>The CompilationUnit of A$B now contains this Synthesizer (called CompilationUnit.syn)
+ * </ul>
+ * 
  * @author Sebastian Erdweg
  */
 public class Synthesizer {
   public Set<CompilationUnit> modules;
-  public Map<Path, Integer> files;
+  public Map<Path, Integer> files; // external file dependencies
   
+  /**
+   * 
+   * @param modules
+   * @param files
+   *          external file dependencies
+   */
   public Synthesizer(Set<CompilationUnit> modules, Map<Path, Integer> files) {
     this.modules = modules;
     this.files = files;
@@ -28,7 +41,8 @@ public class Synthesizer {
 
   public void markSynthesized(CompilationUnit c) {
     for (CompilationUnit m : modules)
-      c.addModuleDependency(m);
+      c.addModuleDependency(m); // TODO: Check: Shouldn't there be a circular
+                                // dependency??
     for (Entry<Path, Integer> e : files.entrySet())
       c.addExternalFileDependency(e.getKey(), e.getValue());
   }
