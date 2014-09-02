@@ -39,11 +39,11 @@ public class Synthesizer {
       this.files.put(p, stamper.stampOf(p));
   }
 
-  public void markSynthesized(CompilationUnit c) {
+  public void markSynthesized(CompilationUnit synthesizedModule) {
     for (CompilationUnit m : modules)
-      c.addModuleDependency(m); // TODO: Check: Shouldn't there be a circular
-                                // dependency??
+      synthesizedModule.addModuleDependency(m);
+
     for (Entry<Path, Integer> e : files.entrySet())
-      c.addExternalFileDependency(e.getKey(), e.getValue());
+      synthesizedModule.addExternalFileDependency(e.getKey(), e.getValue());
   }
 }

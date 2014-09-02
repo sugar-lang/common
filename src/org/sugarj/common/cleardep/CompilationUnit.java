@@ -84,8 +84,7 @@ abstract public class CompilationUnit extends PersistableEntity {
    * @param sourceFiles
    *          i.e.: .sugj file
    * @param editedSourceFiles
-   *          TODO: Correct??: is empty (not null), except source has been
-   *          edited (i.e.: .sugj file)
+   *          is empty or null, except source has been edited (i.e.: .sugj file)
    * @param mode
    * 
    * @param syn
@@ -151,8 +150,7 @@ abstract public class CompilationUnit extends PersistableEntity {
    * @param editedDep
    *          path to the persisted editedCompilationUnit (.dep file)
    * @param editedSourceFiles
-   *          TODO: Correct??: is empty (not null), except source has been
-   *          edited (i.e.: .sugj file)
+   *          is empty / null, except source has been edited (i.e.: .sugj file)
    * @param mode
    * @return
    * @throws IOException
@@ -394,9 +392,6 @@ abstract public class CompilationUnit extends PersistableEntity {
   protected abstract boolean isConsistentExtend(Mode mode);
   
   /**
-   * TODO: Why does this FAIL if nothing was edited (editedSourceFiles == null)
-   * ??
-   * 
    * @param editedSourceFiles
    * @param mode
    *          TODO: unused?
