@@ -24,6 +24,11 @@ import org.sugarj.common.path.AbsolutePath;
 import org.sugarj.common.path.Path;
 import org.sugarj.common.path.RelativePath;
 
+/**
+ * 
+ * @author Simon Ramstedt
+ *
+ */
 public class CompilationUnitTest {
 
   @Rule

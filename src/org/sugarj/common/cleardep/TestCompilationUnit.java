@@ -4,7 +4,8 @@ import org.sugarj.common.cleardep.mode.Mode;
 
 /**
  * Test Compilation Unit
- * @author User
+ * 
+ * @author Simon Ramstedt
  *
  */
 class TestCompilationUnit extends CompilationUnit{
