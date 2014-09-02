@@ -89,7 +89,7 @@ public class CompilationUnitTest {
 
     assertTrue(a.dependsOnNoncircularly(b));
     assertTrue(a.dependsOn(b));
-    // assertFalse(a.dependsOnTransitively(b)); //TODO: why false?
+    assertTrue(a.dependsOnTransitively(b));
 
     b.addModuleDependency(c); // a -> b -> c
 
@@ -109,7 +109,7 @@ public class CompilationUnitTest {
 
     b.addModuleDependency(c); // a <-> b -> c
 
-    // assertTrue(a.dependsOnTransitively(c)); //TODO: why false?
+    assertTrue(a.dependsOnTransitively(c));
     assertFalse(a.dependsOnTransitivelyNoncircularly(c));
 
   }
@@ -129,18 +129,14 @@ public class CompilationUnitTest {
   @Test
   public void test_isConsistentShallow_1() throws Exception {
 
-    // assertTrue(a.isConsistentShallow( null, testMode)); //TODO: why does this
-    // fail?
-    assertTrue(a.isConsistentShallow(a.sourceArtifacts, editorMode));
+    assertTrue(a.isConsistentShallow(null, editorMode));
 
     TestFile f1 = generateRandomFileIn(sourceFolder);
     // source artifacts
     a.addSourceArtifact(f1.relativeTo(sourceFolder));
-    assertTrue(a.isConsistentShallow(a.sourceArtifacts, editorMode));
+    assertTrue(a.isConsistentShallow(null, editorMode));
     FileCommands.delete(f1);
-    // assertFalse(a.isConsistentShallow(a.sourceArtifacts, editorMode)); //
-    // TODO:
-    // why doesn't this fail?
+    assertFalse(a.isConsistentShallow(null, editorMode));
 
   }
 
@@ -148,14 +144,14 @@ public class CompilationUnitTest {
   public void test_isConsistentShallow_2() throws Exception {
 
     a.addExternalFileDependency(f1);
-    assertTrue(a.isConsistentShallow(a.sourceArtifacts, editorMode));
+    assertTrue(a.isConsistentShallow(null, editorMode));
     FileCommands.delete(f1);
-    assertFalse(a.isConsistentShallow(a.sourceArtifacts, editorMode));
+    assertFalse(a.isConsistentShallow(null, editorMode));
 
     b.addExternalFileDependency(f2);
-    assertTrue(b.isConsistentShallow(b.sourceArtifacts, editorMode));
+    assertTrue(b.isConsistentShallow(null, editorMode));
     changeContentOf(f2);
-    assertFalse(b.isConsistentShallow(b.sourceArtifacts, editorMode));
+    assertFalse(b.isConsistentShallow(null, editorMode));
 
   }
 
@@ -163,27 +159,26 @@ public class CompilationUnitTest {
   public void test_isConsistentShallow_3() throws Exception {
 
     a.addGeneratedFile(f1);
-    assertTrue(a.isConsistentShallow(a.sourceArtifacts, editorMode));
+    assertTrue(a.isConsistentShallow(null, editorMode));
     FileCommands.delete(f1);
-    assertFalse(a.isConsistentShallow(a.sourceArtifacts, editorMode));
+    assertFalse(a.isConsistentShallow(null, editorMode));
 
     b.addGeneratedFile(f2);
-    assertTrue(b.isConsistentShallow(b.sourceArtifacts, editorMode));
+    assertTrue(b.isConsistentShallow(null, editorMode));
     changeContentOf(f2);
-    assertFalse(b.isConsistentShallow(b.sourceArtifacts, editorMode));
+    assertFalse(b.isConsistentShallow(null, editorMode));
   }
 
   @Test
   public void test_isConsistent_1() throws Exception {
 
-    // assertTrue(a.isConsistent( null, testMode)); //TODO: Why fail?
-    assertTrue(a.isConsistent(a.sourceArtifacts, editorMode));
+    assertTrue(a.isConsistent(null, editorMode));
 
     // shallow dependency
     a.addExternalFileDependency(f1);
-    assertTrue(a.isConsistent(a.sourceArtifacts, editorMode));
+    assertTrue(a.isConsistent(null, editorMode));
     FileCommands.delete(f1);
-    assertFalse(a.isConsistent(a.sourceArtifacts, editorMode));
+    assertFalse(a.isConsistent(null, editorMode));
 
   }
 
@@ -192,33 +187,29 @@ public class CompilationUnitTest {
 
     // a -> b
     
-    sourceArtifacts.putAll(a.sourceArtifacts);
-    sourceArtifacts.putAll(b.sourceArtifacts);
     a.addModuleDependency(b);
-    assertTrue(a.isConsistent(sourceArtifacts, editorMode));
+    assertTrue(a.isConsistent(null, editorMode));
 
     // a -> b (b inconsistent)
     b.addExternalFileDependency(f1);
-    assertTrue(a.isConsistent(sourceArtifacts, editorMode));
+    assertTrue(a.isConsistent(null, editorMode));
     FileCommands.delete(f1);
-    assertFalse(a.isConsistent(sourceArtifacts, editorMode));
+    assertFalse(a.isConsistent(null, editorMode));
   }
 
   @Test
   public void test_isConsistent_3() throws Exception {
     
     // a <-> b
-    sourceArtifacts.putAll(a.sourceArtifacts);
-    sourceArtifacts.putAll(b.sourceArtifacts);
     a.addCircularModuleDependency(b);
     b.addModuleDependency(a);
-    assertTrue(a.isConsistent(sourceArtifacts, editorMode));
+    assertTrue(a.isConsistent(null, editorMode));
 
     // a <-> b (b inconsistent)
     b.addExternalFileDependency(f1);
-    assertTrue(a.isConsistent(sourceArtifacts, editorMode));
+    assertTrue(a.isConsistent(null, editorMode));
     FileCommands.delete(f1);
-    assertFalse(a.isConsistent(sourceArtifacts, editorMode));
+    assertFalse(a.isConsistent(null, editorMode));
 
   }
 
@@ -226,18 +217,15 @@ public class CompilationUnitTest {
   public void test_isConsistent_4() throws Exception {
 
     // a -> b -> c
-    sourceArtifacts.putAll(a.sourceArtifacts);
-    sourceArtifacts.putAll(b.sourceArtifacts);
-    sourceArtifacts.putAll(c.sourceArtifacts);
     a.addModuleDependency(b);
     b.addModuleDependency(c);
-    assertTrue(a.isConsistent(sourceArtifacts, editorMode));
+    assertTrue(a.isConsistent(null, editorMode));
 
     // a -> b -> c (c inconsistent)
     c.addExternalFileDependency(f1);
-    assertTrue(a.isConsistent(sourceArtifacts, editorMode));
+    assertTrue(a.isConsistent(null, editorMode));
     FileCommands.delete(f1);
-    assertFalse(a.isConsistent(sourceArtifacts, editorMode));
+    assertFalse(a.isConsistent(null, editorMode));
 
   }
 
@@ -246,9 +234,6 @@ public class CompilationUnitTest {
 
     // a -> x (synth) -> b,c
     
-    sourceArtifacts.putAll(a.sourceArtifacts);
-    sourceArtifacts.putAll(b.sourceArtifacts); // TODO: why is this nessessary??!
-    sourceArtifacts.putAll(c.sourceArtifacts); // TODO: why is this nessessary??!
     Set<CompilationUnit> synModules = new HashSet<>();
     synModules.add(b);
     synModules.add(c);
@@ -258,14 +243,13 @@ public class CompilationUnitTest {
 
     TestCompilationUnit x = generateRandomModule(new Synthesizer(testStamper, synModules, externalDependencies));
 
-    sourceArtifacts.putAll(x.sourceArtifacts);
 
     a.addModuleDependency(x);
 
 
-    assertTrue(a.isConsistent(sourceArtifacts, editorMode));
+    assertTrue(a.isConsistent(null, editorMode));
     FileCommands.delete(f1);
-    assertFalse(a.isConsistent(sourceArtifacts, editorMode));
+    assertFalse(a.isConsistent(null, editorMode));
   }
 
   @Test
@@ -273,9 +257,6 @@ public class CompilationUnitTest {
 
     // a -> x (synth) -> b,c (c inconsistent)
 
-    sourceArtifacts.putAll(a.sourceArtifacts);
-    sourceArtifacts.putAll(b.sourceArtifacts); // TODO: why is this nessessary?
-    sourceArtifacts.putAll(c.sourceArtifacts); // TODO: why is this nessessary?
     Set<CompilationUnit> synModules = new HashSet<>();
     synModules.add(b);
     synModules.add(c);
@@ -285,16 +266,15 @@ public class CompilationUnitTest {
 
     TestCompilationUnit x = generateRandomModule(new Synthesizer(testStamper, synModules, externalDependencies));
 
-    sourceArtifacts.putAll(x.sourceArtifacts);
 
     a.addModuleDependency(x);
 
     // make c inconsistent
     c.addGeneratedFile(f2);
-    assertTrue(a.isConsistent(sourceArtifacts, editorMode));
+    assertTrue(a.isConsistent(null, editorMode));
     
     FileCommands.delete(f2);
-    assertFalse(a.isConsistent(sourceArtifacts, editorMode));
+    assertFalse(a.isConsistent(null, editorMode));
   }
 
   @Test
@@ -341,7 +321,6 @@ public class CompilationUnitTest {
 
     e1.addModuleDependency(e2);
     e2.addModuleDependency(e3);
-    // e3.addCircularModuleDependency(e1); //TODO: does it work like this?
 
     e1.liftEditedToCompiled();
 
@@ -497,7 +476,6 @@ public class CompilationUnitTest {
           if (((TestFile) o).read().equals(this.read()))
             return true;
         } catch (IOException e) {
-          // TODO Auto-generated catch block
           e.printStackTrace();
         }
       }
