@@ -275,12 +275,20 @@ abstract public class CompilationUnit extends PersistableEntity {
     generatedFiles.put(file, stampOfFile);
   }
   
+  /**
+   * Simply use addModuleDependency(...) instead
+   */
+  @Deprecated
   public void addCircularModuleDependency(CompilationUnit mod) {
     circularModuleDependencies.add(mod);
   }
   
-  public void addModuleDependency(CompilationUnit mod) {
-    moduleDependencies.add(mod);
+  public void addModuleDependency(final CompilationUnit mod) {
+    
+    if (mod.dependsOnTransitively(this))
+      circularModuleDependencies.add(mod);
+    else
+      moduleDependencies.add(mod);
   }
   
   

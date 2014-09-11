@@ -135,6 +135,19 @@ public class CompilationUnitMock {
   }
 
   @Test
+  public void test_addModuleDependency() throws Exception {
+
+    a.addModuleDependency(b);
+    b.addModuleDependency(c);
+    c.addModuleDependency(a);
+    assertTrue(a.circularModuleDependencies.isEmpty());
+    assertTrue(b.circularModuleDependencies.isEmpty());
+    assertTrue(a.moduleDependencies.contains(b));
+    assertTrue(b.moduleDependencies.contains(c));
+    assertTrue(c.circularModuleDependencies.contains(a));
+  }
+
+  @Test
   public void test_isConsistentShallow_1() throws Exception {
 
     assertTrue(a.isConsistentShallow(null, editorMode));
@@ -348,45 +361,29 @@ public class CompilationUnitMock {
   @Test
   public void test_liftEditedToCompiled_WithSynthesizer() throws IOException {
 
-    TestFile e1CompiledDep = randomPathIn(sourceFolder);
-    TestFile e2CompiledDep = randomPathIn(sourceFolder);
-    TestFile e3CompiledDep = randomPathIn(sourceFolder);
 
-    TestFile e1EditedDep = randomPathIn(sourceFolder);
-    TestFile e2EditedDep = randomPathIn(sourceFolder);
-    TestFile e3EditedDep = randomPathIn(sourceFolder);
 
-    Set<RelativePath> e1SourceFiles = new HashSet<RelativePath>();
+   a.addExternalFileDependency(f1);
+    a.addGeneratedFile(f2);
 
-    Set<RelativePath> e2SourceFiles = new HashSet<RelativePath>();
-
-    Set<RelativePath> e3SourceFiles = new HashSet<RelativePath>();
-
-    TestCompilationUnit e1 = TestCompilationUnit.create(TestCompilationUnit.class, testStamper, e1CompiledDep, compileFolder, e1EditedDep, editedFolder, e1SourceFiles, null, new ForEditorMode(null, true), null);
-
-    e1.addExternalFileDependency(f1);
-    e1.addGeneratedFile(f2);
-
-    TestCompilationUnit e2 = TestCompilationUnit.create(TestCompilationUnit.class, testStamper, e2CompiledDep, compileFolder, e2EditedDep, editedFolder, e2SourceFiles, null, new ForEditorMode(null, true), null);
-
-    e2.addExternalFileDependency(f1);
-    e2.addExternalFileDependency(f3);
-    e2.addGeneratedFile(f4);
+    b.addExternalFileDependency(f1);
+    b.addExternalFileDependency(f3);
+    b.addGeneratedFile(f4);
 
     // Synthesizer
     Set<CompilationUnit> modules = new HashSet<CompilationUnit>();
     Map<Path, Integer> files = new HashMap<Path, Integer>();
-
-    modules.add(e1);
-    modules.add(e2);
-
+    modules.add(a);
+    modules.add(b);
     files.put(f5, testStamper.stampOf(f5));
-
     Synthesizer syn = new Synthesizer(modules, files);
 
-    TestCompilationUnit e3 = TestCompilationUnit.create(TestCompilationUnit.class, testStamper, e3CompiledDep, compileFolder, e3EditedDep, editedFolder, e3SourceFiles, null, new ForEditorMode(null, true), syn);
+    TestFile compiledDep = randomPathIn(sourceFolder);
+    TestFile editedDep = randomPathIn(sourceFolder);
+    Set<RelativePath> sourceFiles = new HashSet<RelativePath>();
+    TestCompilationUnit compilationUnitWithSynthesizer = TestCompilationUnit.create(TestCompilationUnit.class, testStamper, compiledDep, compileFolder, editedDep, editedFolder, sourceFiles, null, new ForEditorMode(null, true), syn);
 
-    e3.liftEditedToCompiled();
+    compilationUnitWithSynthesizer.liftEditedToCompiled();
 
     TestFile cf1 = new TestFile(compileFolder, f1.name());
     TestFile cf2 = new TestFile(compileFolder, f2.name());
@@ -400,9 +397,9 @@ public class CompilationUnitMock {
     assertEquals(cf4, f4);
     assertEquals(cf5, f5);
 
-    TestCompilationUnit c1 = (TestCompilationUnit) e1.compiledCompilationUnit;
-    TestCompilationUnit c2 = (TestCompilationUnit) e2.compiledCompilationUnit;
-    TestCompilationUnit c3 = (TestCompilationUnit) e3.compiledCompilationUnit;
+    TestCompilationUnit c1 = (TestCompilationUnit) a.compiledCompilationUnit;
+    TestCompilationUnit c2 = (TestCompilationUnit) b.compiledCompilationUnit;
+    TestCompilationUnit c3 = (TestCompilationUnit) compilationUnitWithSynthesizer.compiledCompilationUnit;
 
     assertTrue(c3.getModuleDependencies().contains(c1));
     assertTrue(c3.getModuleDependencies().contains(c2));
