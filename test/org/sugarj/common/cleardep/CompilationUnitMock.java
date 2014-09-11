@@ -44,7 +44,7 @@ public class CompilationUnitMock {
 
   Stamper testStamper = ContentHashStamper.instance;
   Mode editorMode = new ForEditorMode(null, true);
-  TestCompilationUnit a, b, c, d, e;
+  TestCompilationUnit m1, m2, m3, m4, m5, m6;
   TestFile f1, f2, f3, f4, f5;
   Map<RelativePath, Integer> sourceArtifacts;
 
@@ -56,11 +56,12 @@ public class CompilationUnitMock {
     editedFolder = new TestFile(tempFolder.newFolder("edited"));
 
     // test modules
-    a = generateRandomModule();
-    b = generateRandomModule();
-    c = generateRandomModule();
-    d = generateRandomModule();
-    e = generateRandomModule();
+    m1 = generateRandomModule();
+    m2 = generateRandomModule();
+    m3 = generateRandomModule();
+    m4 = generateRandomModule();
+    m5 = generateRandomModule();
+    m6 = generateRandomModule();
 
     // test files
     f1 = generateRandomFileIn(editedFolder);
@@ -82,124 +83,132 @@ public class CompilationUnitMock {
   @Test
   public void test_getCircularFileDependencies() throws IOException {
 
-    Assert.assertArrayEquals(new Path[0], a.getCircularFileDependencies().toArray());
-    a.addExternalFileDependency(f1);
-    a.addModuleDependency(b);
-    b.addExternalFileDependency(f1);
+    Assert.assertArrayEquals(new Path[0], m1.getCircularFileDependencies().toArray());
+    m1.addExternalFileDependency(f1);
+    m1.addModuleDependency(m2);
+    m2.addExternalFileDependency(f1);
     Path[] cfd = { f1 };
-    Assert.assertArrayEquals(cfd, a.getCircularFileDependencies().toArray());
+    Assert.assertArrayEquals(cfd, m1.getCircularFileDependencies().toArray());
   }
 
   @Test
   public void test_dependsOn_1() throws Exception {
 
-    a.addModuleDependency(b); // a -> b
+    m1.addModuleDependency(m2); // a -> b
 
-    assertTrue(a.dependsOnNoncircularly(b));
-    assertTrue(a.dependsOn(b));
-    assertTrue(a.dependsOnTransitively(b));
+    assertTrue(m1.dependsOnNoncircularly(m2));
+    assertTrue(m1.dependsOn(m2));
+    assertTrue(m1.dependsOnTransitively(m2));
 
-    b.addModuleDependency(c); // a -> b -> c
+    m2.addModuleDependency(m3); // a -> b -> c
 
-    assertTrue(a.dependsOnTransitivelyNoncircularly(c));
-    assertTrue(a.dependsOnTransitively(c));
+    assertTrue(m1.dependsOnTransitivelyNoncircularly(m3));
+    assertTrue(m1.dependsOnTransitively(m3));
 
   }
 
   @Test
   public void test_dependsOn_2() throws Exception {
 
-    a.addCircularModuleDependency(b); // a <-> b
-    b.addModuleDependency(a);
+    m1.addCircularModuleDependency(m2); // a <-> b
+    m2.addModuleDependency(m1);
 
-    assertTrue(a.dependsOn(b));
-    assertFalse(a.dependsOnNoncircularly(b));
+    assertTrue(m1.dependsOn(m2));
+    assertFalse(m1.dependsOnNoncircularly(m2));
 
-    b.addModuleDependency(c); // a <-> b -> c
+    m2.addModuleDependency(m3); // a <-> b -> c
 
-    assertTrue(a.dependsOnTransitively(c));
-    assertFalse(a.dependsOnTransitivelyNoncircularly(c));
+    assertTrue(m1.dependsOnTransitively(m3));
+    assertFalse(m1.dependsOnTransitivelyNoncircularly(m3));
 
   }
 
   @Test
   public void test_dependsOn_3() throws Exception {
 
-    a.addModuleDependency(b); // a -> b
-    b.addCircularModuleDependency(c); // a -> b <-> c
-    c.addModuleDependency(b);
+    m1.addModuleDependency(m2); // a -> b
+    m2.addCircularModuleDependency(m3); // a -> b <-> c
+    m3.addModuleDependency(m2);
 
-    assertTrue(a.dependsOnTransitively(c));
-    assertFalse(a.dependsOnTransitivelyNoncircularly(c));
+    assertTrue(m1.dependsOnTransitively(m3));
+    assertFalse(m1.dependsOnTransitivelyNoncircularly(m3));
 
   }
 
   @Test
   public void test_addModuleDependency() throws Exception {
 
-    a.addModuleDependency(b);
-    b.addModuleDependency(c);
-    c.addModuleDependency(a);
-    assertTrue(a.circularModuleDependencies.isEmpty());
-    assertTrue(b.circularModuleDependencies.isEmpty());
-    assertTrue(a.moduleDependencies.contains(b));
-    assertTrue(b.moduleDependencies.contains(c));
-    assertTrue(c.circularModuleDependencies.contains(a));
+    m1.addModuleDependency(m2);
+    m2.addModuleDependency(m3);
+    m3.addModuleDependency(m1);
+    assertTrue(m1.circularModuleDependencies.isEmpty());
+    assertTrue(m2.circularModuleDependencies.isEmpty());
+    assertTrue(m1.moduleDependencies.contains(m2));
+    assertTrue(m2.moduleDependencies.contains(m3));
+    assertTrue(m3.circularModuleDependencies.contains(m1));
+
+    // TODO: should this case be covered or rejected by addModuleDependency(..)
+    // ?
+    m4.addModuleDependency(m5);
+    m5.addModuleDependency(m6);
+    assertFalse(m4.circularModuleDependencies.contains(m6));
+    m4.addModuleDependency(m6);
+    assertTrue(m4.circularModuleDependencies.contains(m6));
   }
 
   @Test
   public void test_isConsistentShallow_1() throws Exception {
 
-    assertTrue(a.isConsistentShallow(null, editorMode));
+    assertTrue(m1.isConsistentShallow(null, editorMode));
 
     TestFile f1 = generateRandomFileIn(sourceFolder);
     // source artifacts
-    a.addSourceArtifact(f1.relativeTo(sourceFolder));
-    assertTrue(a.isConsistentShallow(null, editorMode));
+    m1.addSourceArtifact(f1.relativeTo(sourceFolder));
+    assertTrue(m1.isConsistentShallow(null, editorMode));
     FileCommands.delete(f1);
-    assertFalse(a.isConsistentShallow(null, editorMode));
+    assertFalse(m1.isConsistentShallow(null, editorMode));
 
   }
 
   @Test
   public void test_isConsistentShallow_2() throws Exception {
 
-    a.addExternalFileDependency(f1);
-    assertTrue(a.isConsistentShallow(null, editorMode));
+    m1.addExternalFileDependency(f1);
+    assertTrue(m1.isConsistentShallow(null, editorMode));
     FileCommands.delete(f1);
-    assertFalse(a.isConsistentShallow(null, editorMode));
+    assertFalse(m1.isConsistentShallow(null, editorMode));
 
-    b.addExternalFileDependency(f2);
-    assertTrue(b.isConsistentShallow(null, editorMode));
+    m2.addExternalFileDependency(f2);
+    assertTrue(m2.isConsistentShallow(null, editorMode));
     changeContentOf(f2);
-    assertFalse(b.isConsistentShallow(null, editorMode));
+    assertFalse(m2.isConsistentShallow(null, editorMode));
 
   }
 
   @Test
   public void test_isConsistentShallow_3() throws Exception {
 
-    a.addGeneratedFile(f1);
-    assertTrue(a.isConsistentShallow(null, editorMode));
+    m1.addGeneratedFile(f1);
+    assertTrue(m1.isConsistentShallow(null, editorMode));
     FileCommands.delete(f1);
-    assertFalse(a.isConsistentShallow(null, editorMode));
+    assertFalse(m1.isConsistentShallow(null, editorMode));
 
-    b.addGeneratedFile(f2);
-    assertTrue(b.isConsistentShallow(null, editorMode));
+    m2.addGeneratedFile(f2);
+    assertTrue(m2.isConsistentShallow(null, editorMode));
     changeContentOf(f2);
-    assertFalse(b.isConsistentShallow(null, editorMode));
+    assertFalse(m2.isConsistentShallow(null, editorMode));
   }
 
   @Test
   public void test_isConsistent_1() throws Exception {
 
-    assertTrue(a.isConsistent(null, editorMode));
+    assertTrue(m1.isConsistent(null, editorMode));
 
     // shallow dependency
-    a.addExternalFileDependency(f1);
-    assertTrue(a.isConsistent(null, editorMode));
+    m1.addExternalFileDependency(f1);
+    assertTrue(m1.isConsistent(null, editorMode));
     FileCommands.delete(f1);
-    assertFalse(a.isConsistent(null, editorMode));
+    assertFalse(m1.isConsistent(null, editorMode));
 
   }
 
@@ -208,29 +217,29 @@ public class CompilationUnitMock {
 
     // a -> b
     
-    a.addModuleDependency(b);
-    assertTrue(a.isConsistent(null, editorMode));
+    m1.addModuleDependency(m2);
+    assertTrue(m1.isConsistent(null, editorMode));
 
     // a -> b (b inconsistent)
-    b.addExternalFileDependency(f1);
-    assertTrue(a.isConsistent(null, editorMode));
+    m2.addExternalFileDependency(f1);
+    assertTrue(m1.isConsistent(null, editorMode));
     FileCommands.delete(f1);
-    assertFalse(a.isConsistent(null, editorMode));
+    assertFalse(m1.isConsistent(null, editorMode));
   }
 
   @Test
   public void test_isConsistent_3() throws Exception {
     
     // a <-> b
-    a.addCircularModuleDependency(b);
-    b.addModuleDependency(a);
-    assertTrue(a.isConsistent(null, editorMode));
+    m1.addCircularModuleDependency(m2);
+    m2.addModuleDependency(m1);
+    assertTrue(m1.isConsistent(null, editorMode));
 
     // a <-> b (b inconsistent)
-    b.addExternalFileDependency(f1);
-    assertTrue(a.isConsistent(null, editorMode));
+    m2.addExternalFileDependency(f1);
+    assertTrue(m1.isConsistent(null, editorMode));
     FileCommands.delete(f1);
-    assertFalse(a.isConsistent(null, editorMode));
+    assertFalse(m1.isConsistent(null, editorMode));
 
   }
 
@@ -238,15 +247,15 @@ public class CompilationUnitMock {
   public void test_isConsistent_4() throws Exception {
 
     // a -> b -> c
-    a.addModuleDependency(b);
-    b.addModuleDependency(c);
-    assertTrue(a.isConsistent(null, editorMode));
+    m1.addModuleDependency(m2);
+    m2.addModuleDependency(m3);
+    assertTrue(m1.isConsistent(null, editorMode));
 
     // a -> b -> c (c inconsistent)
-    c.addExternalFileDependency(f1);
-    assertTrue(a.isConsistent(null, editorMode));
+    m3.addExternalFileDependency(f1);
+    assertTrue(m1.isConsistent(null, editorMode));
     FileCommands.delete(f1);
-    assertFalse(a.isConsistent(null, editorMode));
+    assertFalse(m1.isConsistent(null, editorMode));
 
   }
 
@@ -256,8 +265,8 @@ public class CompilationUnitMock {
     // a -> x (synth) -> b,c
     
     Set<CompilationUnit> synModules = new HashSet<>();
-    synModules.add(b);
-    synModules.add(c);
+    synModules.add(m2);
+    synModules.add(m3);
 
     Set<Path> externalDependencies = new HashSet<Path>();
     externalDependencies.add(f1);
@@ -265,12 +274,12 @@ public class CompilationUnitMock {
     TestCompilationUnit x = generateRandomModule(new Synthesizer(testStamper, synModules, externalDependencies));
 
 
-    a.addModuleDependency(x);
+    m1.addModuleDependency(x);
 
 
-    assertTrue(a.isConsistent(null, editorMode));
+    assertTrue(m1.isConsistent(null, editorMode));
     FileCommands.delete(f1);
-    assertFalse(a.isConsistent(null, editorMode));
+    assertFalse(m1.isConsistent(null, editorMode));
   }
 
   @Test
@@ -279,8 +288,8 @@ public class CompilationUnitMock {
     // a -> x (synth) -> b,c (c inconsistent)
 
     Set<CompilationUnit> synModules = new HashSet<>();
-    synModules.add(b);
-    synModules.add(c);
+    synModules.add(m2);
+    synModules.add(m3);
 
     Set<Path> externalDependencies = new HashSet<Path>();
     externalDependencies.add(f1);
@@ -288,14 +297,14 @@ public class CompilationUnitMock {
     TestCompilationUnit x = generateRandomModule(new Synthesizer(testStamper, synModules, externalDependencies));
 
 
-    a.addModuleDependency(x);
+    m1.addModuleDependency(x);
 
     // make c inconsistent
-    c.addGeneratedFile(f2);
-    assertTrue(a.isConsistent(null, editorMode));
+    m3.addGeneratedFile(f2);
+    assertTrue(m1.isConsistent(null, editorMode));
     
     FileCommands.delete(f2);
-    assertFalse(a.isConsistent(null, editorMode));
+    assertFalse(m1.isConsistent(null, editorMode));
   }
 
   @Test
@@ -363,18 +372,18 @@ public class CompilationUnitMock {
 
 
 
-   a.addExternalFileDependency(f1);
-    a.addGeneratedFile(f2);
+   m1.addExternalFileDependency(f1);
+    m1.addGeneratedFile(f2);
 
-    b.addExternalFileDependency(f1);
-    b.addExternalFileDependency(f3);
-    b.addGeneratedFile(f4);
+    m2.addExternalFileDependency(f1);
+    m2.addExternalFileDependency(f3);
+    m2.addGeneratedFile(f4);
 
     // Synthesizer
     Set<CompilationUnit> modules = new HashSet<CompilationUnit>();
     Map<Path, Integer> files = new HashMap<Path, Integer>();
-    modules.add(a);
-    modules.add(b);
+    modules.add(m1);
+    modules.add(m2);
     files.put(f5, testStamper.stampOf(f5));
     Synthesizer syn = new Synthesizer(modules, files);
 
@@ -397,8 +406,8 @@ public class CompilationUnitMock {
     assertEquals(cf4, f4);
     assertEquals(cf5, f5);
 
-    TestCompilationUnit c1 = (TestCompilationUnit) a.compiledCompilationUnit;
-    TestCompilationUnit c2 = (TestCompilationUnit) b.compiledCompilationUnit;
+    TestCompilationUnit c1 = (TestCompilationUnit) m1.compiledCompilationUnit;
+    TestCompilationUnit c2 = (TestCompilationUnit) m2.compiledCompilationUnit;
     TestCompilationUnit c3 = (TestCompilationUnit) compilationUnitWithSynthesizer.compiledCompilationUnit;
 
     assertTrue(c3.getModuleDependencies().contains(c1));
@@ -441,15 +450,15 @@ public class CompilationUnitMock {
       }
     };
 
-    a.addModuleDependency(b);
-    b.addModuleDependency(c);
-    b.addModuleDependency(d);
-    d.addModuleDependency(e);
-    e.addCircularModuleDependency(a);
+    m1.addModuleDependency(m2);
+    m2.addModuleDependency(m3);
+    m2.addModuleDependency(m4);
+    m4.addModuleDependency(m5);
+    m5.addCircularModuleDependency(m1);
 
-    a.visit(v);
+    m1.visit(v);
 
-    Object[] expected = { a, b, c, d, e };
+    Object[] expected = { m1, m2, m3, m4, m5 };
     Assert.assertArrayEquals(expected, visited.toArray());
 
   }
@@ -467,7 +476,7 @@ public class CompilationUnitMock {
     Set<CompilationUnit> modules = new HashSet<CompilationUnit>();
     Map<Path, Integer> files = new HashMap<Path, Integer>();
 
-    modules.add(b);
+    modules.add(m2);
 
     files.put(f5, testStamper.stampOf(f5));
 
@@ -475,8 +484,8 @@ public class CompilationUnitMock {
 
     TestCompilationUnit e1 = TestCompilationUnit.create(TestCompilationUnit.class, testStamper, e1CompiledDep, compileFolder, e1EditedDep, editedFolder, e1SourceFiles, null, new ForEditorMode(null, true), syn);
 
-    e1.addModuleDependency(c);
-    e1.addCircularModuleDependency(d);
+    e1.addModuleDependency(m3);
+    e1.addCircularModuleDependency(m4);
     e1.addExternalFileDependency(f1);
     e1.addGeneratedFile(f2);
 
@@ -486,16 +495,16 @@ public class CompilationUnitMock {
     e1 = TestCompilationUnit.read(TestCompilationUnit.class, testStamper, e1EditedDep);
 
     Assert.assertNotNull(e1.getSynthesizer());
-    assertEquals(b.persistentPath.getAbsolutePath(), e1.getSynthesizer().modules.iterator().next().persistentPath.getAbsolutePath());
+    assertEquals(m2.persistentPath.getAbsolutePath(), e1.getSynthesizer().modules.iterator().next().persistentPath.getAbsolutePath());
 
     List<String> names = new LinkedList<String>();
     for (CompilationUnit c : e1.getModuleDependencies()) {
       names.add(c.getName());
     }
-    assertTrue(names.contains(b.getName()));
-    assertTrue(names.contains(c.getName()));
+    assertTrue(names.contains(m2.getName()));
+    assertTrue(names.contains(m3.getName()));
 
-    assertEquals(d.persistentPath.getAbsolutePath(), e1.circularModuleDependencies.iterator().next().persistentPath.getAbsolutePath());
+    assertEquals(m4.persistentPath.getAbsolutePath(), e1.circularModuleDependencies.iterator().next().persistentPath.getAbsolutePath());
 
     List<String> paths = new LinkedList<String>();
     for (Path p : e1.getExternalFileDependencies()) {

@@ -283,12 +283,21 @@ abstract public class CompilationUnit extends PersistableEntity {
     circularModuleDependencies.add(mod);
   }
   
-  public void addModuleDependency(final CompilationUnit mod) {
+  /**
+   * @return true if mod was added to moduleDependencies <br>
+   *         false if mod was added to circularModuleDependencies
+   */
+  public boolean addModuleDependency(final CompilationUnit mod) {
     
-    if (mod.dependsOnTransitively(this))
+    if (mod.dependsOnTransitively(this) || this.dependsOnTransitively(mod)) {
+
       circularModuleDependencies.add(mod);
-    else
-      moduleDependencies.add(mod);
+      return false;
+    }
+
+    moduleDependencies.add(mod);
+    return true;
+
   }
   
   
