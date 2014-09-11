@@ -21,7 +21,11 @@ import org.sugarj.common.path.RelativePath;
 import org.sugarj.util.Pair;
 
 /**
- * Dependency management for modules.
+ * Dependency management for modules. <br>
+ * <br>
+ * For each module there are two <i>CompilationUnit</i>s. One for automatic
+ * compilations (generates only temporary files) and one for "real" compilation
+ * that may use already generated files (if valid)
  * 
  * @author Sebastian Erdweg
  */
@@ -37,17 +41,55 @@ abstract public class CompilationUnit extends PersistableEntity {
   
   protected Synthesizer syn;
   
+  /**
+   * if this == compiledCompilationUnit -> temporary directory <br>
+   * if this == editedCompilationUnit   -> i.e. /bin folder
+   */
   protected Path targetDir;
+  
+  /**
+   * source files
+   */
   protected Map<RelativePath, Integer> sourceArtifacts;
+  
   protected Set<CompilationUnit> moduleDependencies;
-  protected Set<CompilationUnit> circularModuleDependencies;  
+  protected Set<CompilationUnit> circularModuleDependencies;
+  
   protected Map<Path, Integer> externalFileDependencies;
+  
   protected Map<Path, Integer> generatedFiles;
 
   // **************************
   // Methods for initialization
   // **************************
 
+  /**
+   * 
+   * @param cl
+   * @param stamper
+   * @param compileDep
+   *          path to the persisted compiledCompilationUnit (.dep file)
+   * @param compileTarget
+   *          i.e.: /bin folder
+   * @param editedDep
+   *          path to the persisted editedCompilationUnit (.dep file)
+   * @param editedTarget
+   *          i.e.: some temporary folder
+   * @param sourceFiles
+   * @param editedSourceFiles
+   *          is empty or null, except source has been edited
+   * @param mode
+   * 
+   * @param syn
+   *          == null, except for generated modules (which are a product of a
+   *          transformation on another module)
+   * @return <br>
+   *         <ul>
+   *         <li>edited mode -> editedCompilationUnit
+   *         <li>compiled mode -> compiledCompilationUnit
+   *         </ul>
+   * @throws IOException
+   */
   @SuppressWarnings("unchecked")
   final protected static <E extends CompilationUnit> E create(Class<E> cl, Stamper stamper, Path compileDep, Path compileTarget, Path editedDep, Path editedTarget, Set<RelativePath> sourceFiles, Map<RelativePath, Integer> editedSourceFiles, Mode mode, Synthesizer syn) throws IOException {
     E compileE;
@@ -90,6 +132,22 @@ abstract public class CompilationUnit extends PersistableEntity {
     return e;
   }
  
+  /**
+   * a) mode == DoCompileMode (true) checks all files in the compileTarget
+   * folder (i.e. /bin) and all other dependent modules for consistency
+   * 
+   * @param cl
+   * @param stamper
+   * @param compileDep
+   *          path to the persisted compiledCompilationUnit (.dep file)
+   * @param editedDep
+   *          path to the persisted editedCompilationUnit (.dep file)
+   * @param editedSourceFiles
+   *          is empty / null, except source has been edited
+   * @param mode
+   * @return
+   * @throws IOException
+   */
   @SuppressWarnings("unchecked")
   final protected static <E extends CompilationUnit> Pair<E, Boolean> read(Class<E> cl, Stamper stamper, Path compileDep, Path editedDep, Map<RelativePath, Integer> editedSourceFiles, Mode mode) throws IOException {
     E compileE = PersistableEntity.read(cl, stamper, compileDep);
@@ -116,9 +174,15 @@ abstract public class CompilationUnit extends PersistableEntity {
     return Pair.create(DoCompileMode.isDoCompile(mode) ? compileE : editedE, false);
   }
   
+/**
+ * Copies content of a (consistent) <i>editedCompilationUnit</i> to a <i>compiledCompilationUnit</i>
+ * @param compiled
+ */
   protected void copyContentTo(CompilationUnit compiled) {
     compiled.sourceArtifacts.putAll(sourceArtifacts);
     
+    // TODO: copying synthesizer?
+
     for (CompilationUnit dep : moduleDependencies)
       if (dep.compiledCompilationUnit == null)
         compiled.addModuleDependency(dep);
@@ -138,6 +202,10 @@ abstract public class CompilationUnit extends PersistableEntity {
       compiled.addGeneratedFile(FileCommands.tryCopyFile(targetDir, compiled.targetDir, p));
   }
   
+  /**
+   * Copies contents of all dependent (consistent) <i>editedCompilationUnit</i>s to <i>compiledCompilationUnit</i>s
+   * @throws IOException
+   */
   protected void liftEditedToCompiled() throws IOException {
     ModuleVisitor<Void> liftVisitor = new ModuleVisitor<Void>() {
       @Override public Void visit(CompilationUnit mod, Mode mode) {
@@ -207,12 +275,29 @@ abstract public class CompilationUnit extends PersistableEntity {
     generatedFiles.put(file, stampOfFile);
   }
   
+  /**
+   * Simply use addModuleDependency(...) instead
+   */
+  @Deprecated
   public void addCircularModuleDependency(CompilationUnit mod) {
     circularModuleDependencies.add(mod);
   }
   
-  public void addModuleDependency(CompilationUnit mod) {
+  /**
+   * @return true if mod was added to moduleDependencies <br>
+   *         false if mod was added to circularModuleDependencies
+   */
+  public boolean addModuleDependency(final CompilationUnit mod) {
+    
+    if (mod.dependsOnTransitively(this) || this.dependsOnTransitively(mod)) {
+
+      circularModuleDependencies.add(mod);
+      return false;
+    }
+
     moduleDependencies.add(mod);
+    return true;
+
   }
   
   
@@ -220,6 +305,10 @@ abstract public class CompilationUnit extends PersistableEntity {
   // Methods for querying dependencies
   // *********************************
 
+  /**
+   * is edited ...
+   * @return
+   */
   public boolean isParsedCompilationUnit() {
     return compiledCompilationUnit != null;
   }
@@ -237,6 +326,11 @@ abstract public class CompilationUnit extends PersistableEntity {
     return false;
   }
 
+  /**
+   * Depends on directly
+   * @param other
+   * @return
+   */
   public boolean dependsOn(CompilationUnit other) {
     return moduleDependencies.contains(other) || circularModuleDependencies.contains(other);    
   }
@@ -309,6 +403,12 @@ abstract public class CompilationUnit extends PersistableEntity {
 
   protected abstract boolean isConsistentExtend(Mode mode);
   
+  /**
+   * @param editedSourceFiles
+   * @param mode
+   *          TODO: unused?
+   * @return
+   */
   protected boolean isConsistentWithSourceArtifacts(Map<RelativePath, Integer> editedSourceFiles, Mode mode) {
     if (sourceArtifacts.isEmpty())
       return false;
@@ -325,6 +425,19 @@ abstract public class CompilationUnit extends PersistableEntity {
     return true;
   }
 
+  /**
+   * Checks consistency only for this module's ...
+   * <ul>
+   * <li>source files
+   * <li>generated files
+   * <li>external file dependencies
+   * </ul>
+   * 
+   * @param editedSourceFiles
+   * @param mode
+   *          (compiled / edited / ... )
+   * @return
+   */
   public boolean isConsistentShallow(Map<RelativePath, Integer> editedSourceFiles, Mode mode) {
     if (hasPersistentVersionChanged())
       return false;
@@ -346,6 +459,14 @@ abstract public class CompilationUnit extends PersistableEntity {
     return true;
   }
 
+  /**
+   * Checks consistency of this module including its module dependencies <br>
+   * 
+   * @param editedSourceFiles
+   * @param mode
+   *          (compiled / edited / ... )
+   * @return
+   */
   public boolean isConsistent(final Map<RelativePath, Integer> editedSourceFiles, Mode mode) {
     ModuleVisitor<Boolean> isConsistentVisitor = new ModuleVisitor<Boolean>() {
       @Override public Boolean visit(CompilationUnit mod, Mode mode) { return mod.isConsistentShallow(editedSourceFiles, mode); }

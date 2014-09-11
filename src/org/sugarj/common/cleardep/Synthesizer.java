@@ -8,12 +8,27 @@ import java.util.Set;
 import org.sugarj.common.path.Path;
 
 /**
+ * <ul>
+ * <li>Used to dependency-track modules (called A$B) that are a product of a transformation (B) on another module (A)
+ * <li>Holds references to the required modules (A and B)
+ * <li>The module that includes the transformed module has only a dependency on A$B
+ * <li>The CompilationUnit of A$B now contains this Synthesizer (called CompilationUnit.syn)
+ * </ul>
+ * 
  * @author Sebastian Erdweg
  */
 public class Synthesizer {
   public Set<CompilationUnit> modules;
-  public Map<Path, Integer> files;
+  public Map<Path, Integer> files; // external file dependencies
   
+  /**
+   * 
+   * @param modules
+   *          required by the module to be synthesized
+   * @param files
+   *          external file dependencies required by the module to be
+   *          synthesized
+   */
   public Synthesizer(Set<CompilationUnit> modules, Map<Path, Integer> files) {
     this.modules = modules;
     this.files = files;
@@ -26,10 +41,11 @@ public class Synthesizer {
       this.files.put(p, stamper.stampOf(p));
   }
 
-  public void markSynthesized(CompilationUnit c) {
+  public void markSynthesized(CompilationUnit synthesizedModule) {
     for (CompilationUnit m : modules)
-      c.addModuleDependency(m);
+      synthesizedModule.addModuleDependency(m);
+
     for (Entry<Path, Integer> e : files.entrySet())
-      c.addExternalFileDependency(e.getKey(), e.getValue());
+      synthesizedModule.addExternalFileDependency(e.getKey(), e.getValue());
   }
 }
