@@ -21,10 +21,11 @@ import org.sugarj.common.path.RelativePath;
 import org.sugarj.util.Pair;
 
 /**
- * Dependency management for modules.
- * <br><br>
- * For each module (i.e: .sugj-File) there are two <i>CompilationUnit</i>s. One for automatic compilations (generates only temporary files)
- * and one for "real" compilation that may use already generated files (if valid)
+ * Dependency management for modules. <br>
+ * <br>
+ * For each module there are two <i>CompilationUnit</i>s. One for automatic
+ * compilations (generates only temporary files) and one for "real" compilation
+ * that may use already generated files (if valid)
  * 
  * @author Sebastian Erdweg
  */
@@ -47,22 +48,15 @@ abstract public class CompilationUnit extends PersistableEntity {
   protected Path targetDir;
   
   /**
-   * For example the .sugj file <br>
-   * Usually only one file
+   * source files
    */
   protected Map<RelativePath, Integer> sourceArtifacts;
   
   protected Set<CompilationUnit> moduleDependencies;
   protected Set<CompilationUnit> circularModuleDependencies;
   
-  /**
-   * For example included .jar files
-   */
   protected Map<Path, Integer> externalFileDependencies;
   
-  /**
-   * For example generated .java .class .sdf files
-   */
   protected Map<Path, Integer> generatedFiles;
 
   // **************************
@@ -82,9 +76,8 @@ abstract public class CompilationUnit extends PersistableEntity {
    * @param editedTarget
    *          i.e.: some temporary folder
    * @param sourceFiles
-   *          i.e.: .sugj file
    * @param editedSourceFiles
-   *          is empty or null, except source has been edited (i.e.: .sugj file)
+   *          is empty or null, except source has been edited
    * @param mode
    * 
    * @param syn
@@ -150,7 +143,7 @@ abstract public class CompilationUnit extends PersistableEntity {
    * @param editedDep
    *          path to the persisted editedCompilationUnit (.dep file)
    * @param editedSourceFiles
-   *          is empty / null, except source has been edited (i.e.: .sugj file)
+   *          is empty / null, except source has been edited
    * @param mode
    * @return
    * @throws IOException
@@ -188,6 +181,8 @@ abstract public class CompilationUnit extends PersistableEntity {
   protected void copyContentTo(CompilationUnit compiled) {
     compiled.sourceArtifacts.putAll(sourceArtifacts);
     
+    // TODO: copying synthesizer?
+
     for (CompilationUnit dep : moduleDependencies)
       if (dep.compiledCompilationUnit == null)
         compiled.addModuleDependency(dep);
@@ -416,12 +411,14 @@ abstract public class CompilationUnit extends PersistableEntity {
   /**
    * Checks consistency only for this module's ...
    * <ul>
-   * <li>source files (editedSourceFiles) (i.e.: .sugj file)
-   * <li>generated files (generatedFiles) (i.e.: .java  .class  .sdf files)
-   * <li>external file dependencies (externalFileDependencies) (i.e.: .jar files)
+   * <li>source files
+   * <li>generated files
+   * <li>external file dependencies
    * </ul>
-   * @param editedSourceFiles (i.e.: sugj. file)
-   * @param mode (compiled / edited / ... )
+   * 
+   * @param editedSourceFiles
+   * @param mode
+   *          (compiled / edited / ... )
    * @return
    */
   public boolean isConsistentShallow(Map<RelativePath, Integer> editedSourceFiles, Mode mode) {
@@ -447,8 +444,10 @@ abstract public class CompilationUnit extends PersistableEntity {
 
   /**
    * Checks consistency of this module including its module dependencies <br>
-   * @param editedSourceFiles (i.e.: sugj. file)
-   * @param mode (compiled / edited / ... )
+   * 
+   * @param editedSourceFiles
+   * @param mode
+   *          (compiled / edited / ... )
    * @return
    */
   public boolean isConsistent(final Map<RelativePath, Integer> editedSourceFiles, Mode mode) {

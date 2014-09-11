@@ -8,16 +8,20 @@ import java.io.File;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.Set;
 
 import org.junit.After;
+import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 import org.sugarj.common.FileCommands;
+import org.sugarj.common.cleardep.CompilationUnit.ModuleVisitor;
 import org.sugarj.common.cleardep.mode.ForEditorMode;
 import org.sugarj.common.cleardep.mode.Mode;
 import org.sugarj.common.path.AbsolutePath;
@@ -29,7 +33,7 @@ import org.sugarj.common.path.RelativePath;
  * @author Simon Ramstedt
  *
  */
-public class CompilationUnitTest {
+public class CompilationUnitMock {
 
   @Rule
   public TemporaryFolder tempFolder = new TemporaryFolder();
@@ -65,7 +69,6 @@ public class CompilationUnitTest {
     f4 = generateRandomFileIn(editedFolder);
     f5 = generateRandomFileIn(editedFolder);
 
-    this.sourceArtifacts = new HashMap<RelativePath, Integer>();
   }
 
   @After
@@ -77,9 +80,14 @@ public class CompilationUnitTest {
   // Tests
 
   @Test
-  public void test_getCircularFileDependencies() {
+  public void test_getCircularFileDependencies() throws IOException {
 
-    // TODO: write
+    Assert.assertArrayEquals(new Path[0], a.getCircularFileDependencies().toArray());
+    a.addExternalFileDependency(f1);
+    a.addModuleDependency(b);
+    b.addExternalFileDependency(f1);
+    Path[] cfd = { f1 };
+    Assert.assertArrayEquals(cfd, a.getCircularFileDependencies().toArray());
   }
 
   @Test
@@ -289,31 +297,23 @@ public class CompilationUnitTest {
     TestFile e3EditedDep = randomPathIn(sourceFolder);
 
     Set<RelativePath> e1SourceFiles = new HashSet<RelativePath>();
-    e1SourceFiles.add(generateRandomFileIn(sourceFolder).relativeTo(sourceFolder));
-    e1SourceFiles.add(generateRandomFileIn(sourceFolder).relativeTo(sourceFolder));
 
     Set<RelativePath> e2SourceFiles = new HashSet<RelativePath>();
-    e2SourceFiles.add(generateRandomFileIn(sourceFolder).relativeTo(sourceFolder));
 
     Set<RelativePath> e3SourceFiles = new HashSet<RelativePath>();
-    e3SourceFiles.add(generateRandomFileIn(sourceFolder).relativeTo(sourceFolder));
 
-    Map<RelativePath, Integer> e1EditedSourceFiles = new HashMap<RelativePath, Integer>();
-    Map<RelativePath, Integer> e2EditedSourceFiles = new HashMap<RelativePath, Integer>();
-    Map<RelativePath, Integer> e3EditedSourceFiles = new HashMap<RelativePath, Integer>();
-
-    TestCompilationUnit e1 = TestCompilationUnit.create(TestCompilationUnit.class, testStamper, e1CompiledDep, compileFolder, e1EditedDep, editedFolder, e1SourceFiles, e1EditedSourceFiles, new ForEditorMode(null, true), null);
+    TestCompilationUnit e1 = TestCompilationUnit.create(TestCompilationUnit.class, testStamper, e1CompiledDep, compileFolder, e1EditedDep, editedFolder, e1SourceFiles, null, new ForEditorMode(null, true), null);
 
     e1.addExternalFileDependency(f1);
     e1.addGeneratedFile(f2);
 
-    TestCompilationUnit e2 = TestCompilationUnit.create(TestCompilationUnit.class, testStamper, e2CompiledDep, compileFolder, e2EditedDep, editedFolder, e2SourceFiles, e2EditedSourceFiles, new ForEditorMode(null, true), null);
+    TestCompilationUnit e2 = TestCompilationUnit.create(TestCompilationUnit.class, testStamper, e2CompiledDep, compileFolder, e2EditedDep, editedFolder, e2SourceFiles, null, new ForEditorMode(null, true), null);
 
     e2.addExternalFileDependency(f1);
     e2.addExternalFileDependency(f3);
     e2.addGeneratedFile(f4);
 
-    TestCompilationUnit e3 = TestCompilationUnit.create(TestCompilationUnit.class, testStamper, e3CompiledDep, compileFolder, e3EditedDep, editedFolder, e3SourceFiles, e3EditedSourceFiles, new ForEditorMode(null, true), null);
+    TestCompilationUnit e3 = TestCompilationUnit.create(TestCompilationUnit.class, testStamper, e3CompiledDep, compileFolder, e3EditedDep, editedFolder, e3SourceFiles, null, new ForEditorMode(null, true), null);
 
     e3.addExternalFileDependency(f1);
     e3.addGeneratedFile(f2);
@@ -348,25 +348,167 @@ public class CompilationUnitTest {
   @Test
   public void test_liftEditedToCompiled_WithSynthesizer() throws IOException {
 
-    // TODO: write
+    TestFile e1CompiledDep = randomPathIn(sourceFolder);
+    TestFile e2CompiledDep = randomPathIn(sourceFolder);
+    TestFile e3CompiledDep = randomPathIn(sourceFolder);
+
+    TestFile e1EditedDep = randomPathIn(sourceFolder);
+    TestFile e2EditedDep = randomPathIn(sourceFolder);
+    TestFile e3EditedDep = randomPathIn(sourceFolder);
+
+    Set<RelativePath> e1SourceFiles = new HashSet<RelativePath>();
+
+    Set<RelativePath> e2SourceFiles = new HashSet<RelativePath>();
+
+    Set<RelativePath> e3SourceFiles = new HashSet<RelativePath>();
+
+    TestCompilationUnit e1 = TestCompilationUnit.create(TestCompilationUnit.class, testStamper, e1CompiledDep, compileFolder, e1EditedDep, editedFolder, e1SourceFiles, null, new ForEditorMode(null, true), null);
+
+    e1.addExternalFileDependency(f1);
+    e1.addGeneratedFile(f2);
+
+    TestCompilationUnit e2 = TestCompilationUnit.create(TestCompilationUnit.class, testStamper, e2CompiledDep, compileFolder, e2EditedDep, editedFolder, e2SourceFiles, null, new ForEditorMode(null, true), null);
+
+    e2.addExternalFileDependency(f1);
+    e2.addExternalFileDependency(f3);
+    e2.addGeneratedFile(f4);
+
+    // Synthesizer
+    Set<CompilationUnit> modules = new HashSet<CompilationUnit>();
+    Map<Path, Integer> files = new HashMap<Path, Integer>();
+
+    modules.add(e1);
+    modules.add(e2);
+
+    files.put(f5, testStamper.stampOf(f5));
+
+    Synthesizer syn = new Synthesizer(modules, files);
+
+    TestCompilationUnit e3 = TestCompilationUnit.create(TestCompilationUnit.class, testStamper, e3CompiledDep, compileFolder, e3EditedDep, editedFolder, e3SourceFiles, null, new ForEditorMode(null, true), syn);
+
+    e3.liftEditedToCompiled();
+
+    TestFile cf1 = new TestFile(compileFolder, f1.name());
+    TestFile cf2 = new TestFile(compileFolder, f2.name());
+    TestFile cf3 = new TestFile(compileFolder, f3.name());
+    TestFile cf4 = new TestFile(compileFolder, f4.name());
+    TestFile cf5 = new TestFile(compileFolder, f5.name());
+
+    assertEquals(cf1, f1);
+    assertEquals(cf2, f2);
+    assertEquals(cf3, f3);
+    assertEquals(cf4, f4);
+    assertEquals(cf5, f5);
+
+    TestCompilationUnit c1 = (TestCompilationUnit) e1.compiledCompilationUnit;
+    TestCompilationUnit c2 = (TestCompilationUnit) e2.compiledCompilationUnit;
+    TestCompilationUnit c3 = (TestCompilationUnit) e3.compiledCompilationUnit;
+
+    assertTrue(c3.getModuleDependencies().contains(c1));
+    assertTrue(c3.getModuleDependencies().contains(c2));
+
+    Assert.assertNotNull(c3.getSynthesizer());
+
+    assertTrue(c3.getSynthesizer().modules.contains(c1));
+    assertTrue(c3.getSynthesizer().modules.contains(c2));
   }
 
-  /*
-   * Testing needed?
-   * 
-   * @Test public void computeRanks_Test() {}
-   * 
-   * @Test public void addExternalFileDependencyTest() { }
-   * 
-   * @Test public void addExternalFileDependencyLateTest() { }
-   * 
-   * @Test public void addGeneratedFileTest() { }
-   * 
-   * @Test public void addCircularModuleDependencyTest() { }
-   * 
-   * @Test public void addModuleDependencyTest() { }
-   */
+  @Test
+  public void test_visit() {
 
+    final List<CompilationUnit> visited = new LinkedList<CompilationUnit>();
+
+    ModuleVisitor<Void> v = new ModuleVisitor<Void>() {
+
+      @Override
+      public Void visit(CompilationUnit mod, Mode mode) {
+
+        visited.add(mod);
+
+        return null;
+      }
+
+      @Override
+      public Void init() {
+        return null;
+      }
+
+      @Override
+      public Void combine(Void t1, Void t2) {
+        return null;
+      }
+
+      @Override
+      public boolean cancel(Void t) {
+        return false;
+      }
+    };
+
+    a.addModuleDependency(b);
+    b.addModuleDependency(c);
+    b.addModuleDependency(d);
+    d.addModuleDependency(e);
+    e.addCircularModuleDependency(a);
+
+    a.visit(v);
+
+    Object[] expected = { a, b, c, d, e };
+    Assert.assertArrayEquals(expected, visited.toArray());
+
+  }
+
+  @Test
+  public void test_readWrite() throws IOException {
+
+    TestFile e1CompiledDep = randomPathIn(sourceFolder);
+
+    TestFile e1EditedDep = randomPathIn(sourceFolder);
+
+    Set<RelativePath> e1SourceFiles = new HashSet<RelativePath>();
+
+    // Synthesizer
+    Set<CompilationUnit> modules = new HashSet<CompilationUnit>();
+    Map<Path, Integer> files = new HashMap<Path, Integer>();
+
+    modules.add(b);
+
+    files.put(f5, testStamper.stampOf(f5));
+
+    Synthesizer syn = new Synthesizer(modules, files);
+
+    TestCompilationUnit e1 = TestCompilationUnit.create(TestCompilationUnit.class, testStamper, e1CompiledDep, compileFolder, e1EditedDep, editedFolder, e1SourceFiles, null, new ForEditorMode(null, true), syn);
+
+    e1.addModuleDependency(c);
+    e1.addCircularModuleDependency(d);
+    e1.addExternalFileDependency(f1);
+    e1.addGeneratedFile(f2);
+
+    e1.write();
+
+    e1 = null;
+    e1 = TestCompilationUnit.read(TestCompilationUnit.class, testStamper, e1EditedDep);
+
+    Assert.assertNotNull(e1.getSynthesizer());
+    assertEquals(b.persistentPath.getAbsolutePath(), e1.getSynthesizer().modules.iterator().next().persistentPath.getAbsolutePath());
+
+    List<String> names = new LinkedList<String>();
+    for (CompilationUnit c : e1.getModuleDependencies()) {
+      names.add(c.getName());
+    }
+    assertTrue(names.contains(b.getName()));
+    assertTrue(names.contains(c.getName()));
+
+    assertEquals(d.persistentPath.getAbsolutePath(), e1.circularModuleDependencies.iterator().next().persistentPath.getAbsolutePath());
+
+    List<String> paths = new LinkedList<String>();
+    for (Path p : e1.getExternalFileDependencies()) {
+      paths.add(p.getAbsolutePath());
+    }
+    assertTrue(paths.contains(f5.getAbsolutePath()));
+    assertTrue(paths.contains(f1.getAbsolutePath()));
+
+    assertEquals(f2.getAbsolutePath(), e1.getGeneratedFiles().iterator().next().getAbsolutePath());
+  }
 
   // Helper methods
   

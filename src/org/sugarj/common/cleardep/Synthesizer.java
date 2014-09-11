@@ -24,8 +24,10 @@ public class Synthesizer {
   /**
    * 
    * @param modules
+   *          required by the module to be synthesized
    * @param files
-   *          external file dependencies
+   *          external file dependencies required by the module to be
+   *          synthesized
    */
   public Synthesizer(Set<CompilationUnit> modules, Map<Path, Integer> files) {
     this.modules = modules;
