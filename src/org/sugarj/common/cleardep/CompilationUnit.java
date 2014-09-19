@@ -40,7 +40,7 @@ abstract public class CompilationUnit extends PersistableEntity {
   protected Path targetDir;
   protected Map<RelativePath, Integer> sourceArtifacts;
   protected Set<CompilationUnit> moduleDependencies;
-  protected Set<CompilationUnit> circularModuleDependencies;  
+  protected Set<CompilationUnit> circularModuleDependencies;
   protected Map<Path, Integer> externalFileDependencies;
   protected Map<Path, Integer> generatedFiles;
 
@@ -207,12 +207,23 @@ abstract public class CompilationUnit extends PersistableEntity {
     generatedFiles.put(file, stampOfFile);
   }
   
+  /**
+   * @deprecated use {{@link #addModuleDependency(CompilationUnit)} instead
+   */
+  @Deprecated
   public void addCircularModuleDependency(CompilationUnit mod) {
+    if (!mod.dependsOnTransitivelyNoncircularly(this)) {
+      throw new AssertionError("Circular depedency from " + this + " to " + mod + " does not close a circle");
+    }
     circularModuleDependencies.add(mod);
   }
   
   public void addModuleDependency(CompilationUnit mod) {
-    moduleDependencies.add(mod);
+    if (mod.dependsOnTransitivelyNoncircularly(this)) {
+      this.circularModuleDependencies.add(mod);
+    } else {
+      this.moduleDependencies.add(mod);
+    }
   }
   
   
@@ -309,6 +320,10 @@ abstract public class CompilationUnit extends PersistableEntity {
 
   protected abstract boolean isConsistentExtend(Mode mode);
   
+  protected Integer getInterfaceHash() {
+    return null;
+  }
+  
   protected boolean isConsistentWithSourceArtifacts(Map<RelativePath, Integer> editedSourceFiles, Mode mode) {
     if (sourceArtifacts.isEmpty())
       return false;
@@ -316,10 +331,11 @@ abstract public class CompilationUnit extends PersistableEntity {
     boolean hasEdits = editedSourceFiles != null;
     for (Entry<RelativePath, Integer> e : sourceArtifacts.entrySet()) {
       Integer stamp = hasEdits ? editedSourceFiles.get(e.getKey()) : null;
-      if (stamp != null && !stamp.equals(e.getValue()))
+      if (stamp != null && !stamp.equals(e.getValue())) {
         return false;
-      else if (stamp == null && (!FileCommands.exists(e.getKey()) || e.getValue() != stamper.stampOf(e.getKey())))
+      } else if (stamp == null && (!FileCommands.exists(e.getKey()) || e.getValue() != stamper.stampOf(e.getKey()))) {
         return false;
+      }
     }
 
     return true;
