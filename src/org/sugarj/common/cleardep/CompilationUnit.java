@@ -37,10 +37,12 @@ abstract public class CompilationUnit extends PersistableEntity {
   
   protected Synthesizer syn;
   
+  protected Integer interfaceHash;
   protected Path targetDir;
+//Need to declare as HashMap, because HashMap allows null values, general Map does not guarantee an keys with null value would be lost
   protected Map<RelativePath, Integer> sourceArtifacts;
-  protected Set<CompilationUnit> moduleDependencies;
-  protected Set<CompilationUnit> circularModuleDependencies;
+  protected Map<CompilationUnit, Integer> moduleDependencies; 
+  protected Map<CompilationUnit, Integer> circularModuleDependencies;
   protected Map<Path, Integer> externalFileDependencies;
   protected Map<Path, Integer> generatedFiles;
 
@@ -119,17 +121,21 @@ abstract public class CompilationUnit extends PersistableEntity {
   protected void copyContentTo(CompilationUnit compiled) {
     compiled.sourceArtifacts.putAll(sourceArtifacts);
     
-    for (CompilationUnit dep : moduleDependencies)
+    for (Entry<CompilationUnit,Integer> entry : moduleDependencies.entrySet()) {
+      CompilationUnit dep = entry.getKey();
       if (dep.compiledCompilationUnit == null)
-        compiled.addModuleDependency(dep);
+        compiled.moduleDependencies.put(dep, entry.getValue());
       else
         compiled.addModuleDependency(dep.compiledCompilationUnit);
+    }
     
-    for (CompilationUnit dep : circularModuleDependencies)
+    for (Entry<CompilationUnit,Integer> entry: circularModuleDependencies.entrySet()) {
+      CompilationUnit dep = entry.getKey();
       if (dep.compiledCompilationUnit == null)
-        compiled.addCircularModuleDependency(dep);
+        compiled.circularModuleDependencies.put(dep, entry.getValue());
       else
         compiled.addCircularModuleDependency(dep.compiledCompilationUnit);
+    }
     
     for (Path p : externalFileDependencies.keySet())
       compiled.addExternalFileDependency(FileCommands.tryCopyFile(targetDir, compiled.targetDir, p));
@@ -172,8 +178,8 @@ abstract public class CompilationUnit extends PersistableEntity {
   @Override
   protected void init() {
     sourceArtifacts = new HashMap<>();
-    moduleDependencies = new HashSet<>();
-    circularModuleDependencies = new HashSet<>();
+    moduleDependencies = new HashMap<>();
+    circularModuleDependencies = new HashMap<>();
     externalFileDependencies = new HashMap<>();
     generatedFiles = new HashMap<>();
   }
@@ -215,14 +221,14 @@ abstract public class CompilationUnit extends PersistableEntity {
     if (!mod.dependsOnTransitivelyNoncircularly(this)) {
       throw new AssertionError("Circular depedency from " + this + " to " + mod + " does not close a circle");
     }
-    circularModuleDependencies.add(mod);
+    circularModuleDependencies.put(mod, mod.getInterfaceHash());
   }
   
   public void addModuleDependency(CompilationUnit mod) {
     if (mod.dependsOnTransitivelyNoncircularly(this)) {
-      this.circularModuleDependencies.add(mod);
+      this.circularModuleDependencies.put(mod, mod.getInterfaceHash());
     } else {
-      this.moduleDependencies.add(mod);
+      this.moduleDependencies.put(mod, mod.getInterfaceHash());
     }
   }
   
@@ -236,26 +242,26 @@ abstract public class CompilationUnit extends PersistableEntity {
   }
   
   public boolean dependsOnNoncircularly(CompilationUnit other) {
-    return moduleDependencies.contains(other);    
+    return getModuleDependencies().contains(other);    
   }
 
   public boolean dependsOnTransitivelyNoncircularly(CompilationUnit other) {
     if (dependsOnNoncircularly(other))
       return true;
-    for (CompilationUnit mod : moduleDependencies)
+    for (CompilationUnit mod : getModuleDependencies())
       if (mod.dependsOnTransitivelyNoncircularly(other))
         return true;
     return false;
   }
 
   public boolean dependsOn(CompilationUnit other) {
-    return moduleDependencies.contains(other) || circularModuleDependencies.contains(other);    
+    return getModuleDependencies().contains(other) || getCircularModuleDependencies().contains(other);    
   }
 
   public boolean dependsOnTransitively(CompilationUnit other) {
     if (dependsOn(other))
       return true;
-    for (CompilationUnit mod : moduleDependencies)
+    for (CompilationUnit mod : getModuleDependencies())
       if (mod.dependsOnTransitively(other))
         return true;
     return false;
@@ -266,11 +272,11 @@ abstract public class CompilationUnit extends PersistableEntity {
   }
   
   public Set<CompilationUnit> getModuleDependencies() {
-    return moduleDependencies;
+    return moduleDependencies.keySet();
   }
   
   public Set<CompilationUnit> getCircularModuleDependencies() {
-    return circularModuleDependencies;
+    return circularModuleDependencies.keySet();
   }
   
   public Set<Path> getExternalFileDependencies() {
@@ -298,10 +304,10 @@ abstract public class CompilationUnit extends PersistableEntity {
         if (!dependencies.contains(p) && FileCommands.exists(p))
           dependencies.add(p);
       
-      for (CompilationUnit nextDep: res.moduleDependencies)
+      for (CompilationUnit nextDep: res.getModuleDependencies())
         if (!visited.contains(nextDep) && !queue.contains(nextDep))
           queue.addFirst(nextDep);
-      for (CompilationUnit nextDep : res.circularModuleDependencies)
+      for (CompilationUnit nextDep : res.getCircularModuleDependencies())
         if (!visited.contains(nextDep) && !queue.contains(nextDep))
           queue.addFirst(nextDep);
     }
@@ -320,9 +326,14 @@ abstract public class CompilationUnit extends PersistableEntity {
 
   protected abstract boolean isConsistentExtend(Mode mode);
   
-  protected Integer getInterfaceHash() {
-    return null;
+  public Integer getInterfaceHash() {
+    return this.interfaceHash;
   }
+  
+  public void setInterfaceHash(Integer hash) {
+    this.interfaceHash = hash;
+  }
+
   
   protected boolean isConsistentWithSourceArtifacts(Map<RelativePath, Integer> editedSourceFiles, Mode mode) {
     if (sourceArtifacts.isEmpty())
@@ -490,29 +501,32 @@ abstract public class CompilationUnit extends PersistableEntity {
     sourceArtifacts = (Map<RelativePath, Integer>) in.readObject();
     generatedFiles = (Map<Path, Integer>) in.readObject();
     externalFileDependencies = (Map<Path, Integer>) in.readObject();
+    this.interfaceHash = (Integer) in.readObject();
     
     int moduleDepencyCount = in.readInt();
-    moduleDependencies = new HashSet<>(moduleDepencyCount);
+    moduleDependencies = new HashMap<>(moduleDepencyCount);
     for (int i = 0; i < moduleDepencyCount; i++) {
       String clName = (String) in.readObject();
       Class<? extends CompilationUnit> cl = (Class<? extends CompilationUnit>) getClass().getClassLoader().loadClass(clName);
       Path path = (Path) in.readObject();
       CompilationUnit mod = PersistableEntity.read(cl, stamper, path);
+      Integer interfaceHash = (Integer) in.readObject();
       if (mod == null)
         throw new IOException("Required module cannot be read: " + path);
-      moduleDependencies.add(mod);
+      moduleDependencies.put(mod, interfaceHash);
     }
     
     int circularModuleDependencyCount = in.readInt();
-    circularModuleDependencies = new HashSet<>(circularModuleDependencyCount);
+    circularModuleDependencies = new HashMap<>(circularModuleDependencyCount);
     for (int i = 0; i < circularModuleDependencyCount; i++) {
       String clName = (String) in.readObject();
       Class<? extends CompilationUnit> cl = (Class<? extends CompilationUnit>) getClass().getClassLoader().loadClass(clName);
       Path path = (Path) in.readObject();
       CompilationUnit mod = PersistableEntity.read(cl, stamper, path);
+      Integer interfaceHash = (Integer) in.readObject();
       if (mod == null)
         throw new IOException("Required module cannot be read: " + path);
-      circularModuleDependencies.add(mod);
+      circularModuleDependencies.put(mod, interfaceHash);
     }
     
     boolean hasSyn = in.readBoolean();
@@ -539,18 +553,23 @@ abstract public class CompilationUnit extends PersistableEntity {
     out.writeObject(sourceArtifacts = Collections.unmodifiableMap(sourceArtifacts));
     out.writeObject(generatedFiles = Collections.unmodifiableMap(generatedFiles));
     out.writeObject(externalFileDependencies = Collections.unmodifiableMap(externalFileDependencies));
+    out.writeObject(this.interfaceHash);
 
     out.writeInt(moduleDependencies.size());
-    for (CompilationUnit mod : moduleDependencies) {
+    for (Entry<CompilationUnit,Integer> entry : moduleDependencies.entrySet()) {
+      CompilationUnit mod = entry.getKey();
       assert mod.isPersisted() : "Required compilation units must be persisted.";
       out.writeObject(mod.getClass().getCanonicalName());
       out.writeObject(mod.persistentPath);
+      out.writeObject(entry.getValue());
     }
     
     out.writeInt(circularModuleDependencies.size());
-    for (CompilationUnit mod : circularModuleDependencies) {
+    for (Entry<CompilationUnit,Integer> entry : circularModuleDependencies.entrySet()) {
+      CompilationUnit mod = entry.getKey();
       out.writeObject(mod.getClass().getCanonicalName());
       out.writeObject(mod.persistentPath);
+      out.writeObject(entry.getValue());
     }
     
     out.writeBoolean(syn != null);
