@@ -44,6 +44,8 @@ public class Synthesizer {
   public void markSynthesized(CompilationUnit synthesizedModule) {
     for (CompilationUnit m : modules)
       synthesizedModule.addModuleDependency(m);
+    // TODO: maybe the bug was here, when addModuleDiependency didn't recognize
+    // cycles
 
     for (Entry<Path, Integer> e : files.entrySet())
       synthesizedModule.addExternalFileDependency(e.getKey(), e.getValue());

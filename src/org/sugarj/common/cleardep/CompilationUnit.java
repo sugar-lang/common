@@ -181,7 +181,7 @@ abstract public class CompilationUnit extends PersistableEntity {
   protected void copyContentTo(CompilationUnit compiled) {
     compiled.sourceArtifacts.putAll(sourceArtifacts);
     
-    // TODO: copying synthesizer?
+    // TODO: shouldn't the synthesizer also be copied?
 
     for (CompilationUnit dep : moduleDependencies)
       if (dep.compiledCompilationUnit == null)
@@ -276,7 +276,7 @@ abstract public class CompilationUnit extends PersistableEntity {
   }
   
   /**
-   * Simply use addModuleDependency(...) instead
+   * use addModuleDependency(...) instead
    */
   @Deprecated
   public void addCircularModuleDependency(CompilationUnit mod) {
@@ -336,11 +336,13 @@ abstract public class CompilationUnit extends PersistableEntity {
   }
 
   public boolean dependsOnTransitively(CompilationUnit other) {
+
     if (dependsOn(other))
       return true;
     for (CompilationUnit mod : moduleDependencies)
       if (mod.dependsOnTransitively(other))
         return true;
+
     return false;
   }
 
@@ -532,12 +534,16 @@ abstract public class CompilationUnit extends PersistableEntity {
   
   
   /**
-   * Visits the module graph starting from this module, satisfying the following properties:
-   *  - every module transitively imported from `this` module is visited exactly once
-   *  - if a module M1 is visited before a module M2,
-   *    then (i) M1 is not transitively imported from M2 or 
-   *         (ii) M1 and M2 transitively have a circular dependency and
-   *              M1 transitively imports M2 using `moduleDependencies` only.   
+   * Visits the module graph starting from this module, satisfying the following
+   * properties: - every module transitively imported from `this` module is
+   * visited exactly once - if a module M1 is visited before a module M2, then
+   * (i) M1 is not transitively imported from M2 or (ii) M1 and M2 transitively
+   * have a circular dependency and M1 transitively imports M2 using
+   * `moduleDependencies` only.
+   * 
+   * Shorter: Visits every module that is transitively imported from 'this'
+   * module exactly once Visits Module M1 before M2 if <i>M1 is not transitively
+   * (-noncircularly) imported from M2</i>
    */
   public <T> T visit(ModuleVisitor<T> visitor) { return visit(visitor, null); }
   public <T> T visit(ModuleVisitor<T> visitor, Mode thisMode) {

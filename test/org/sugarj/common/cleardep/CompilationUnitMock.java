@@ -94,13 +94,13 @@ public class CompilationUnitMock {
   @Test
   public void test_dependsOn_1() throws Exception {
 
-    m1.addModuleDependency(m2); // a -> b
+    m1.addModuleDependency(m2); // m1 -> m2
 
     assertTrue(m1.dependsOnNoncircularly(m2));
     assertTrue(m1.dependsOn(m2));
     assertTrue(m1.dependsOnTransitively(m2));
 
-    m2.addModuleDependency(m3); // a -> b -> c
+    m2.addModuleDependency(m3); // m1 -> m2 -> m3
 
     assertTrue(m1.dependsOnTransitivelyNoncircularly(m3));
     assertTrue(m1.dependsOnTransitively(m3));
@@ -110,28 +110,39 @@ public class CompilationUnitMock {
   @Test
   public void test_dependsOn_2() throws Exception {
 
-    m1.addCircularModuleDependency(m2); // a <-> b
+    // m1 --> m2
+    // m1 <~~ m2
+    m1.addModuleDependency(m2);
     m2.addModuleDependency(m1);
 
     assertTrue(m1.dependsOn(m2));
-    assertFalse(m1.dependsOnNoncircularly(m2));
+    assertTrue(m1.dependsOnNoncircularly(m2));
+    assertFalse(m2.dependsOnNoncircularly(m1));
 
-    m2.addModuleDependency(m3); // a <-> b -> c
+    // m1 --> m2 --> m3
+    // m1 <~~ m2
+    m2.addModuleDependency(m3);
 
     assertTrue(m1.dependsOnTransitively(m3));
-    assertFalse(m1.dependsOnTransitivelyNoncircularly(m3));
+    // assertFalse(m1.dependsOnTransitivelyNoncircularly(m3));
+
+    // m4 --> m1 --> m2
+    // m1 <~~ m2
+    m4.addModuleDependency(m1);
 
   }
 
   @Test
   public void test_dependsOn_3() throws Exception {
 
-    m1.addModuleDependency(m2); // a -> b
-    m2.addCircularModuleDependency(m3); // a -> b <-> c
+    // m1 --> m2 --> m3
+    // m2 <~~ m3
+    m1.addModuleDependency(m2);
+    m2.addModuleDependency(m3);
     m3.addModuleDependency(m2);
 
     assertTrue(m1.dependsOnTransitively(m3));
-    assertFalse(m1.dependsOnTransitivelyNoncircularly(m3));
+    // assertFalse(m1.dependsOnTransitivelyNoncircularly(m3));
 
   }
 
@@ -215,12 +226,12 @@ public class CompilationUnitMock {
   @Test
   public void test_isConsistent_2() throws Exception {
 
-    // a -> b
+    // m1 -> m2
     
     m1.addModuleDependency(m2);
     assertTrue(m1.isConsistent(null, editorMode));
 
-    // a -> b (b inconsistent)
+    // m1 -> m2 (m2 inconsistent)
     m2.addExternalFileDependency(f1);
     assertTrue(m1.isConsistent(null, editorMode));
     FileCommands.delete(f1);
@@ -230,12 +241,12 @@ public class CompilationUnitMock {
   @Test
   public void test_isConsistent_3() throws Exception {
     
-    // a <-> b
-    m1.addCircularModuleDependency(m2);
+    // m1 <-> m2
+    m1.addModuleDependency(m2);
     m2.addModuleDependency(m1);
     assertTrue(m1.isConsistent(null, editorMode));
 
-    // a <-> b (b inconsistent)
+    // m1 <-> m2 (m2 inconsistent)
     m2.addExternalFileDependency(f1);
     assertTrue(m1.isConsistent(null, editorMode));
     FileCommands.delete(f1);
@@ -246,12 +257,12 @@ public class CompilationUnitMock {
   @Test
   public void test_isConsistent_4() throws Exception {
 
-    // a -> b -> c
+    // m1 -> m2 -> m3
     m1.addModuleDependency(m2);
     m2.addModuleDependency(m3);
     assertTrue(m1.isConsistent(null, editorMode));
 
-    // a -> b -> c (c inconsistent)
+    // m1 -> m2 -> m3 (m3 inconsistent)
     m3.addExternalFileDependency(f1);
     assertTrue(m1.isConsistent(null, editorMode));
     FileCommands.delete(f1);
@@ -262,7 +273,7 @@ public class CompilationUnitMock {
   @Test
   public void test_isConsistent_5() throws Exception {
 
-    // a -> x (synth) -> b,c
+    // m1 -> x (synth) -> m2,m3
     
     Set<CompilationUnit> synModules = new HashSet<>();
     synModules.add(m2);
@@ -285,7 +296,7 @@ public class CompilationUnitMock {
   @Test
   public void test_isConsistent_6() throws Exception {
 
-    // a -> x (synth) -> b,c (c inconsistent)
+    // m1 -> x (synth) -> m2,m3 (m3 inconsistent)
 
     Set<CompilationUnit> synModules = new HashSet<>();
     synModules.add(m2);
@@ -299,7 +310,7 @@ public class CompilationUnitMock {
 
     m1.addModuleDependency(x);
 
-    // make c inconsistent
+    // make m3 inconsistent
     m3.addGeneratedFile(f2);
     assertTrue(m1.isConsistent(null, editorMode));
     
@@ -413,53 +424,38 @@ public class CompilationUnitMock {
     assertTrue(c3.getModuleDependencies().contains(c1));
     assertTrue(c3.getModuleDependencies().contains(c2));
 
-    Assert.assertNotNull(c3.getSynthesizer());
+    // TODO: Should the synthesizer also be copied?
+    // Assert.assertNotNull(c3.getSynthesizer());
+    // assertTrue(c3.getSynthesizer().modules.contains(c1));
+    // assertTrue(c3.getSynthesizer().modules.contains(c2));
+  }
 
-    assertTrue(c3.getSynthesizer().modules.contains(c1));
-    assertTrue(c3.getSynthesizer().modules.contains(c2));
+
+  @Test
+  public void test_visit_1() {
+
+    // m1 ~~> m2 --> m3
+    // m1 <-- m2
+    m2.addModuleDependency(m1);
+    m1.addModuleDependency(m2);
+    m2.addModuleDependency(m3);
+
+    Object[] expected = { m3, m1, m2 };
+    Assert.assertArrayEquals(expected, visitSequence(m1).toArray());
+
   }
 
   @Test
-  public void test_visit() {
+  public void test_visit_2() {
 
-    final List<CompilationUnit> visited = new LinkedList<CompilationUnit>();
-
-    ModuleVisitor<Void> v = new ModuleVisitor<Void>() {
-
-      @Override
-      public Void visit(CompilationUnit mod, Mode mode) {
-
-        visited.add(mod);
-
-        return null;
-      }
-
-      @Override
-      public Void init() {
-        return null;
-      }
-
-      @Override
-      public Void combine(Void t1, Void t2) {
-        return null;
-      }
-
-      @Override
-      public boolean cancel(Void t) {
-        return false;
-      }
-    };
-
+    // m1 --> m2 --> m3
+    // m1 <~~ m2
     m1.addModuleDependency(m2);
+    m2.addModuleDependency(m1);
     m2.addModuleDependency(m3);
-    m2.addModuleDependency(m4);
-    m4.addModuleDependency(m5);
-    m5.addCircularModuleDependency(m1);
 
-    m1.visit(v);
-
-    Object[] expected = { m1, m2, m3, m4, m5 };
-    Assert.assertArrayEquals(expected, visited.toArray());
+    Object[] expected = { m3, m2, m1 };
+    Assert.assertArrayEquals(expected, visitSequence(m1).toArray());
 
   }
 
@@ -485,7 +481,7 @@ public class CompilationUnitMock {
     TestCompilationUnit e1 = TestCompilationUnit.create(TestCompilationUnit.class, testStamper, e1CompiledDep, compileFolder, e1EditedDep, editedFolder, e1SourceFiles, null, new ForEditorMode(null, true), syn);
 
     e1.addModuleDependency(m3);
-    e1.addCircularModuleDependency(m4);
+    e1.circularModuleDependencies.add(m4);
     e1.addExternalFileDependency(f1);
     e1.addGeneratedFile(f2);
 
@@ -518,6 +514,41 @@ public class CompilationUnitMock {
 
   // Helper methods
   
+  List<CompilationUnit> visitSequence(CompilationUnit start) {
+
+    final List<CompilationUnit> visited = new LinkedList<CompilationUnit>();
+
+    ModuleVisitor<Void> v = new ModuleVisitor<Void>() {
+
+      @Override
+      public Void visit(CompilationUnit mod, Mode mode) {
+
+        visited.add(mod);
+
+        return null;
+      }
+
+      @Override
+      public Void init() {
+        return null;
+      }
+
+      @Override
+      public Void combine(Void t1, Void t2) {
+        return null;
+      }
+
+      @Override
+      public boolean cancel(Void t) {
+        return false;
+      }
+    };
+
+    start.visit(v);
+
+    return visited;
+  }
+
   /**
    * 
    * @param length
