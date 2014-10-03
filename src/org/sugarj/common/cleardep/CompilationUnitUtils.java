@@ -63,7 +63,8 @@ public class CompilationUnitUtils {
 
       @Override
       public boolean isFullfilled(CompilationUnit t) {
-       return t.isConsistentWithSourceArtifacts(null, mode);
+        System.out.println(t.isConsistentWithSourceArtifacts(null, mode) + " - " + t.getSourceArtifacts());
+       return !t.isConsistentWithSourceArtifacts(null, mode);
       }
       
     }, root, false);
@@ -74,9 +75,19 @@ public class CompilationUnitUtils {
 
       @Override
       public boolean isFullfilled(CompilationUnit t) {
-        return t.isConsistentShallow(null, mode);
+        return !t.isPersisted() || !t.isConsistentShallow(null, mode);
       }
     }, root, true);
+  }
+  
+  public static Set<CompilationUnit> findAllUnits(CompilationUnit root) {
+    return findUnitsWithMatch(new Predicate<CompilationUnit>() {
+
+      @Override
+      public boolean isFullfilled(CompilationUnit t) {
+        return true;
+      }
+    }, root, false);
   }
 
 }

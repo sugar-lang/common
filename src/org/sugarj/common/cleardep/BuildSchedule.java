@@ -17,7 +17,6 @@ import org.sugarj.util.Pair;
 public class BuildSchedule {
 
   private Set<Task> leafTasks;
-  private Map<CompilationUnit, Integer> unitInterfacesBeforeCompilation;
 
   public static enum TaskState {
     OPEN, IN_PROGESS, SUCCESS, FAILURE;
@@ -81,6 +80,7 @@ public class BuildSchedule {
       for (Task t : this.requiredTasks) {
         switch (t.getState()) {
         case OPEN:
+          break;
         case IN_PROGESS:
           throw new IllegalBuildStateException("Can only determine whether a task has to be build with depending tasks are build");
         case FAILURE:
@@ -96,7 +96,7 @@ public class BuildSchedule {
         if (!u.isConsistentShallow(editedSourceFiles, mode)) {
           return true;
         }
-        if (!u.isConsistent(editedSourceFiles, mode) || !isConsistentToInterfaces(u)) {
+        if (!u.isConsistentToDependencyInterfaces()) {
           return true;
         }
       }
@@ -111,6 +111,10 @@ public class BuildSchedule {
 
     public TaskState getState() {
       return this.state;
+    }
+    
+    public Set<CompilationUnit> getUnitsToCompile() {
+      return unitsToCompile;
     }
 
     public void setState(TaskState state) {
@@ -152,37 +156,11 @@ public class BuildSchedule {
 
   public BuildSchedule() {
     this.leafTasks = new HashSet<>();
-    this.unitInterfacesBeforeCompilation = new HashMap<>();
   }
 
   public void addLeafTask(Task task) {
     assert task.hasNoRequiredTasks() : "Given task is not a leaf";
     this.leafTasks.add(task);
-  }
-
-  public boolean isConsistentToInterfaces(CompilationUnit unit) {
-    return unit.visit(new ModuleVisitor<Boolean>() {
-
-      @Override
-      public Boolean visit(CompilationUnit mod, Mode mode) {
-        return mod.getInterfaceHash() == unitInterfacesBeforeCompilation.get(mod);
-      }
-
-      @Override
-      public Boolean combine(Boolean t1, Boolean t2) {
-        return t1 && t2;
-      }
-
-      @Override
-      public Boolean init() {
-        return true;
-      }
-
-      @Override
-      public boolean cancel(Boolean t) {
-        return !t;
-      }
-    });
   }
 
   /**
@@ -256,19 +234,15 @@ public class BuildSchedule {
     }
 
     // Validate the schedule
-    validateFlattenSchedule(flattenedTasks);
+    assert validateFlattenSchedule(flattenedTasks);
     return flattenedTasks;
   }
 
-  void registerUnitInterface(CompilationUnit unit) {
-    this.unitInterfacesBeforeCompilation.put(unit, unit.getInterfaceHash());
-  }
-
   public static enum ScheduleMode {
-    REBUILD_ALL, REBUILD_INCONSISTENT, REBUILD_INCONSISTENT_INTERFACE;
+    REBUILD_ALL, REBUILD_INCONSISTENT;
   }
 
-  private static void validateFlattenSchedule(List<Task> flatSchedule) {
+  private static boolean validateFlattenSchedule(List<Task> flatSchedule) {
     Set<CompilationUnit> collectedUnits = new HashSet<>();
     for (int i = 0; i < flatSchedule.size(); i++) {
       Task currentTask = flatSchedule.get(i);
@@ -281,10 +255,11 @@ public class BuildSchedule {
       collectedUnits.addAll(currentTask.unitsToCompile);
 
       for (CompilationUnit unit : currentTask.unitsToCompile) {
-        BuildScheduleBuilder.validateDeps("Flattened Schedule", unit, collectedUnits);
+   //     BuildScheduleBuilder.validateDeps("Flattened Schedule", unit, collectedUnits);
 
       }
     }
+    return true;
   }
 
   @Override
