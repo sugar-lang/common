@@ -685,8 +685,8 @@ abstract public class CompilationUnit extends PersistableEntity {
 
     out.writeBoolean(syn != null);
     if (syn != null) {
-      out.writeInt(syn.modules.size());
-      for (CompilationUnit mod : syn.modules) {
+      out.writeInt(syn.generatorModules.size());
+      for (CompilationUnit mod : syn.generatorModules) {
         out.writeObject(mod.getClass().getCanonicalName());
         out.writeObject(mod.persistentPath);
       }
