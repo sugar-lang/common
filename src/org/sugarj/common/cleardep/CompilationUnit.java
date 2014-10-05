@@ -265,7 +265,23 @@ abstract public class CompilationUnit extends PersistableEntity {
     }
   }
   
+  public void updateModuleDependencyInterface(CompilationUnit mod) {
+    if (mod == null) {
+      throw new NullPointerException("Cannot handle null unit");
+    }
+    if (this.moduleDependencies.containsKey(mod)) {
+      this.moduleDependencies.put(mod, mod.getInterfaceHash());
+    } else if (this.circularModuleDependencies.containsKey(mod)) {
+      this.circularModuleDependencies.put(mod, mod.getInterfaceHash());
+    } else {
+      throw new IllegalArgumentException("Given CompilationUnit " + mod + " is not a dependency of this module");
+    }
+  }
+  
   public void moveCircularModulDepToNonCircular(CompilationUnit mod) {
+    if (mod == null) {
+      throw new NullPointerException("Cannot handle null unit");
+    }
     if (!this.circularModuleDependencies.containsKey(mod)) {
       throw new IllegalArgumentException("Given CompilationUnit is not a circular Dependency");
     }
@@ -275,6 +291,9 @@ abstract public class CompilationUnit extends PersistableEntity {
   }
   
   public void moveModuleDepToCircular(CompilationUnit mod) {
+    if (mod == null) {
+      throw new NullPointerException("Cannot handle null unit");
+    }
     if (!this.moduleDependencies.containsKey(mod)) {
       throw new IllegalArgumentException("Given CompilationUnit is not a non circular dependency");
     }
@@ -438,17 +457,25 @@ abstract public class CompilationUnit extends PersistableEntity {
   }
 
   public boolean isConsistentToDependencyInterfaces() {
-    System.out.println("Consistent to interfaces for: " + this.getSourceArtifacts());
-    for (Entry<CompilationUnit, Integer> deps : circularModuleDependencies.entrySet()) {
-      if (deps.getValue() != deps.getKey().getInterfaceHash())
-        return false;
+    if (!this.isConsistentToInterfaceMap(this.moduleDependencies)) {
+      return false;
     }
-    for (Entry<CompilationUnit, Integer> deps : moduleDependencies.entrySet()) {
-      System.out.println(deps.getKey().getSourceArtifacts() + " " + deps.getValue() + " <-> " + deps.getKey().getInterfaceHash());
-      if (deps.getValue() == null || deps.getValue() != deps.getKey().getInterfaceHash())
+    return this.isConsistentToInterfaceMap(this.circularModuleDependencies);
+  }
+  
+  private boolean isConsistentToInterfaceMap(Map<CompilationUnit, Integer> unitMap) {
+    for (Entry<CompilationUnit, Integer> deps : unitMap.entrySet()) {
+      // Get interface (use Integer because may be null)
+      Integer interfaceHash = deps.getKey().getInterfaceHash();
+      // A null interface is always inconsistent
+      if (deps.getValue() == null) {
         return false;
+      }
+      // Compare current interface value to stored one
+      if (!deps.getValue().equals(interfaceHash)) {
+        return false;
+      }
     }
-    System.out.println("Is consistent");
     return true;
   }
 
