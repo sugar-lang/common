@@ -264,7 +264,7 @@ abstract public class CompilationUnit extends PersistableEntity {
       this.moduleDependencies.put(mod, mod.getInterfaceHash());
     }
   }
-  
+
   public void updateModuleDependencyInterface(CompilationUnit mod) {
     if (mod == null) {
       throw new NullPointerException("Cannot handle null unit");
@@ -277,7 +277,7 @@ abstract public class CompilationUnit extends PersistableEntity {
       throw new IllegalArgumentException("Given CompilationUnit " + mod + " is not a dependency of this module");
     }
   }
-  
+
   public void moveCircularModulDepToNonCircular(CompilationUnit mod) {
     if (mod == null) {
       throw new NullPointerException("Cannot handle null unit");
@@ -289,7 +289,7 @@ abstract public class CompilationUnit extends PersistableEntity {
     this.circularModuleDependencies.remove(mod);
     this.moduleDependencies.put(mod, value);
   }
-  
+
   public void moveModuleDepToCircular(CompilationUnit mod) {
     if (mod == null) {
       throw new NullPointerException("Cannot handle null unit");
@@ -315,26 +315,10 @@ abstract public class CompilationUnit extends PersistableEntity {
   }
 
   public boolean dependsOnTransitivelyNoncircularly(CompilationUnit other) {
-    /*
-     * System.out.println("Depends " + this.sourceArtifacts + " on " +
-     * other.sourceArtifacts); if (dependsOnNoncircularly(other)) return true;
-     * for (CompilationUnit mod : getModuleDependencies()) if
-     * (mod.dependsOnTransitivelyNoncircularly(other)) return true; return
-     * false;
-     */
-    return dependsOnTransitivelyNoncircularly(other, 0);
-  }
-
-  private boolean dependsOnTransitivelyNoncircularly(CompilationUnit other, int count) {
-    if (count == 50)
-      throw new AssertionError("COUNT");
-
-    // System.out.println("Depends " + this.sourceArtifacts + " on " +
-    // other.sourceArtifacts);
     if (dependsOnNoncircularly(other))
       return true;
     for (CompilationUnit mod : getModuleDependencies())
-      if (mod.dependsOnTransitivelyNoncircularly(other, count + 1))
+      if (mod.dependsOnTransitivelyNoncircularly(other))
         return true;
     return false;
   }
@@ -462,7 +446,7 @@ abstract public class CompilationUnit extends PersistableEntity {
     }
     return this.isConsistentToInterfaceMap(this.circularModuleDependencies);
   }
-  
+
   private boolean isConsistentToInterfaceMap(Map<CompilationUnit, Integer> unitMap) {
     for (Entry<CompilationUnit, Integer> deps : unitMap.entrySet()) {
       // Get interface (use Integer because may be null)
@@ -518,13 +502,13 @@ abstract public class CompilationUnit extends PersistableEntity {
     public boolean cancel(T t);
   }
 
-  private Pair<Map<CompilationUnit, Pair<Integer,Integer>>, Map<CompilationUnit, Mode>> computeRanks(Mode thisMode) {
+  private Pair<Map<CompilationUnit, Pair<Integer, Integer>>, Map<CompilationUnit, Mode>> computeRanks(Mode thisMode) {
     LinkedList<CompilationUnit> queue = new LinkedList<>();
-    Map<CompilationUnit, Pair<Integer,Integer>> ranks = new HashMap<>();
+    Map<CompilationUnit, Pair<Integer, Integer>> ranks = new HashMap<>();
     Map<CompilationUnit, Mode> modes = new HashMap<>();
 
     queue.add(this);
-    ranks.put(this, Pair.create(0,0));
+    ranks.put(this, Pair.create(0, 0));
     if (thisMode != null)
       modes.put(this, thisMode);
 
@@ -542,24 +526,24 @@ abstract public class CompilationUnit extends PersistableEntity {
         // ranks.containsKey(dep.editedCompilationUnit))
         // dep = dep.editedCompilationUnit;
 
-        Pair<Integer,Integer> dp =ranks.get(dep);
+        Pair<Integer, Integer> dp = ranks.get(dep);
         if (dp != null) {
-        Integer depRank = dp.a;
-        int minRank = Math.min(depRank, rank);
-        int minSecond = Math.min(p.b, dp.b);
+          Integer depRank = dp.a;
+          int minRank = Math.min(depRank, rank);
+          int minSecond = Math.min(p.b, dp.b);
           if (dep.dependsOnTransitivelyNoncircularly(mod)) {
-            ranks.put(dep, Pair.create(minRank,  minSecond-1));
+            ranks.put(dep, Pair.create(minRank, minSecond - 1));
             ranks.put(mod, Pair.create(minRank, p.b));
           } else if (mod.dependsOnTransitivelyNoncircularly(dep)) {
             ranks.put(dep, Pair.create(minRank, dp.b));
-            ranks.put(mod, Pair.create(minRank, minSecond-1));
+            ranks.put(mod, Pair.create(minRank, minSecond - 1));
           } else {
             ranks.put(dep, Pair.create(minRank, dp.b));
             ranks.put(mod, Pair.create(minRank, p.b));
           }
         } else {
           Integer depRank = rank - 1;
-          ranks.put(dep, Pair.create(depRank,0));
+          ranks.put(dep, Pair.create(depRank, 0));
           if (mode != null)
             modes.put(dep, mode.getModeForRequiredModules());
           if (!queue.contains(dep))
@@ -584,8 +568,8 @@ abstract public class CompilationUnit extends PersistableEntity {
   }
 
   public <T> T visit(ModuleVisitor<T> visitor, Mode thisMode) {
-    Pair<Map<CompilationUnit, Pair<Integer,Integer>>, Map<CompilationUnit, Mode>> p = computeRanks(thisMode);
-    final Map<CompilationUnit, Pair<Integer,Integer>> ranks = p.a;
+    Pair<Map<CompilationUnit, Pair<Integer, Integer>>, Map<CompilationUnit, Mode>> p = computeRanks(thisMode);
+    final Map<CompilationUnit, Pair<Integer, Integer>> ranks = p.a;
     Map<CompilationUnit, Mode> modes = p.b;
 
     Comparator<CompilationUnit> comparator = new Comparator<CompilationUnit>() {
@@ -593,23 +577,22 @@ abstract public class CompilationUnit extends PersistableEntity {
         if (m1 == m2)
           return 0;
 
-        Pair<Integer,Integer> r1 = ranks.get(m1);
-        Pair<Integer,Integer> r2 = ranks.get(m2);
+        Pair<Integer, Integer> r1 = ranks.get(m1);
+        Pair<Integer, Integer> r2 = ranks.get(m2);
         int c = Integer.compare(r1.a, r2.b);
         if (c != 0)
           return c;
         return r1.b.compareTo(r2.b);
 
-     /*   if (m1.dependsOnTransitivelyNoncircularly(m2))
-          // m2 before m1
-          return 1;
-
-        if (m2.dependsOnTransitivelyNoncircularly(m1))
-          // m1 before m2
-          return -1;
-
-        // m1 and m2 are incomparable;
-        return 0;*/
+        /*
+         * if (m1.dependsOnTransitivelyNoncircularly(m2)) // m2 before m1 return
+         * 1;
+         * 
+         * if (m2.dependsOnTransitivelyNoncircularly(m1)) // m1 before m2 return
+         * -1;
+         * 
+         * // m1 and m2 are incomparable; return 0;
+         */
       }
     };
 
@@ -650,7 +633,6 @@ abstract public class CompilationUnit extends PersistableEntity {
       Integer interfaceHash = (Integer) in.readObject();
       if (mod == null)
         throw new IOException("Required module cannot be read: " + path);
-      System.out.println("Read hash: "+  interfaceHash);
       moduleDependencies.put(mod, interfaceHash);
     }
 
