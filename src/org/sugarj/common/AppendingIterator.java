@@ -42,7 +42,16 @@ public class AppendingIterator<T,E> implements Iterator<E> {
 
   @Override
   public boolean hasNext() {
-    return this.mainIterator.hasNext() || (this.currentIterator != null && this.currentIterator.hasNext());
+    if (this.currentIterator != null && this.currentIterator.hasNext()) {
+      return true;
+    }
+    while (this.mainIterator.hasNext()) {
+      this.currentIterator = this.iteratorExtractor.getIterator(this.mainIterator.next());
+      if (this.currentIterator.hasNext()) {
+        return true;
+      }
+    }
+    return false;
   }
 
   @Override
