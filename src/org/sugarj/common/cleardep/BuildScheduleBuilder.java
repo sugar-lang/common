@@ -1,5 +1,6 @@
 package org.sugarj.common.cleardep;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Deque;
 import java.util.HashMap;
@@ -138,7 +139,7 @@ public class BuildScheduleBuilder {
     this.inconsistentUnits = new HashSet<>();
     for (CompilationUnit unit : unitsToCompile) {
       this.inconsistentUnits.addAll(CompilationUnitUtils.findInconsistentUnits(unit, mode));
-      System.out.println(this.inconsistentUnits);
+      System.out.println("All inconsisteny units for " + unit + ": " + this.inconsistentUnits);
     }
 
     // A Map which maps compilation units to the tasks where they are in

@@ -3,16 +3,20 @@ package org.sugarj.common.cleardep;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Queue;
 import java.util.Set;
 
+import org.sugarj.common.AppendingIterable;
 import org.sugarj.common.FileCommands;
 import org.sugarj.common.cleardep.mode.DoCompileMode;
 import org.sugarj.common.cleardep.mode.Mode;
@@ -347,6 +351,10 @@ abstract public class CompilationUnit extends PersistableEntity {
   public Set<CompilationUnit> getCircularModuleDependencies() {
     return circularModuleDependencies.keySet();
   }
+  
+  public Iterable<CompilationUnit> getCircularAndNonCircularModuleDependencies() {
+    return new AppendingIterable<>(Arrays.asList(this.getModuleDependencies(), this.getCircularModuleDependencies()));
+  }
 
   public Set<Path> getExternalFileDependencies() {
     return externalFileDependencies.keySet();
@@ -502,22 +510,23 @@ abstract public class CompilationUnit extends PersistableEntity {
     public boolean cancel(T t);
   }
 
-  private Pair<Map<CompilationUnit, Pair<Integer, Integer>>, Map<CompilationUnit, Mode>> computeRanks(Mode thisMode) {
+  private Pair<Map<CompilationUnit, Integer>, Map<CompilationUnit, Mode>> computeRanks(Mode thisMode) {
     LinkedList<CompilationUnit> queue = new LinkedList<>();
-    Map<CompilationUnit, Pair<Integer, Integer>> ranks = new HashMap<>();
+    Map<CompilationUnit, Integer> ranks = new HashMap<>();
+
     Map<CompilationUnit, Mode> modes = new HashMap<>();
 
     queue.add(this);
-    ranks.put(this, Pair.create(0, 0));
+    ranks.put(this, 0);
+
     if (thisMode != null)
       modes.put(this, thisMode);
 
     while (!queue.isEmpty()) {
       CompilationUnit mod = queue.remove();
-      Pair<Integer, Integer> p = ranks.get(mod);
-      int rank = p.a;
-      Mode mode = modes.get(mod);
+      int rank = ranks.get(mod);
 
+      Mode mode = modes.get(mod);
       Set<CompilationUnit> deps = new HashSet<>();
       deps.addAll(mod.getModuleDependencies());
       deps.addAll(mod.getCircularModuleDependencies());
@@ -526,24 +535,14 @@ abstract public class CompilationUnit extends PersistableEntity {
         // ranks.containsKey(dep.editedCompilationUnit))
         // dep = dep.editedCompilationUnit;
 
-        Pair<Integer, Integer> dp = ranks.get(dep);
-        if (dp != null) {
-          Integer depRank = dp.a;
-          int minRank = Math.min(depRank, rank);
-          int minSecond = Math.min(p.b, dp.b);
-          if (dep.dependsOnTransitivelyNoncircularly(mod)) {
-            ranks.put(dep, Pair.create(minRank, minSecond - 1));
-            ranks.put(mod, Pair.create(minRank, p.b));
-          } else if (mod.dependsOnTransitivelyNoncircularly(dep)) {
-            ranks.put(dep, Pair.create(minRank, dp.b));
-            ranks.put(mod, Pair.create(minRank, minSecond - 1));
-          } else {
-            ranks.put(dep, Pair.create(minRank, dp.b));
-            ranks.put(mod, Pair.create(minRank, p.b));
-          }
+        Integer depRank = ranks.get(dep);
+        if (depRank != null) {
+          ranks.put(dep, Math.min(depRank, rank));
+          ranks.put(mod, Math.min(depRank, rank));
         } else {
-          Integer depRank = rank - 1;
-          ranks.put(dep, Pair.create(depRank, 0));
+          depRank = rank - 1;
+          ranks.put(dep, depRank);
+
           if (mode != null)
             modes.put(dep, mode.getModeForRequiredModules());
           if (!queue.contains(dep))
@@ -553,6 +552,178 @@ abstract public class CompilationUnit extends PersistableEntity {
     }
 
     return Pair.create(ranks, modes);
+  }
+  
+  private Set<Set<CompilationUnit>> calculateConnectedComponents(Set<CompilationUnit> units) {
+    Map<CompilationUnit, Set<CompilationUnit>> components = new HashMap<>();
+    Map<CompilationUnit, CompilationUnit> representants = new HashMap<>();
+    Queue<CompilationUnit> unitsToVisit = new LinkedList<>(units);
+    for (CompilationUnit unit : units) {
+      components.put(unit, new HashSet<>(Collections.singleton(unit)));
+      representants.put(unit, unit);
+    }
+    
+    while (!unitsToVisit.isEmpty()) {
+      CompilationUnit unit = unitsToVisit.poll();
+      CompilationUnit unitRep = representants.get(unit);
+      Set<CompilationUnit> unitComp = components.get(unitRep);
+      for (CompilationUnit dep : unit.getCircularAndNonCircularModuleDependencies()) {
+        CompilationUnit depRep = representants.get(dep);
+        if (depRep == null) {
+        	// dep is not a member of units
+        	continue;
+        }
+        if (depRep != unitRep) {
+          Set<CompilationUnit> depComp = components.get(depRep);
+          unitComp.addAll(depComp);
+          for (CompilationUnit u : depComp) {
+            representants.put(u, unitRep);
+          }
+          components.remove(depRep);
+        }
+      }
+    }
+    
+    Set<Set<CompilationUnit>> componentsSet = new HashSet<>(components.values());
+    assert validateConnectedComponents(componentsSet, units) : "Connected components wrong";
+    return componentsSet;
+  }
+  
+  private boolean validateConnectedComponents(Set<Set<CompilationUnit>> connectComps, Set<CompilationUnit> allUnits) {
+	  List<Set<CompilationUnit>> components = new ArrayList<>(connectComps);
+	  
+	  Set<CompilationUnit> allUnitsCopy = new HashSet<>(allUnits);
+	  
+	  for (Set<CompilationUnit> component : components) {
+		  allUnitsCopy.removeAll(component);
+		  boolean connected = component.size() <=1;
+		  for (CompilationUnit u : component) {
+			  if (!allUnits.contains(u)) {
+				  System.err.println("Contains unit which is not in allUnits");
+				  return false;
+			  }
+			  for (CompilationUnit u2 : component) {
+				  if (u == u2) continue;
+				  if (u.dependsOnTransitivlyUsing(u2, component)) {
+					  connected = true;
+					  break;
+				  }
+			  }
+		  }
+		  if (!connected) {
+			  System.err.println("Component is not connected");
+			  return false;
+		  }
+	  }
+	  
+	  if (allUnitsCopy.size() > 0) {
+		  System.err.println("Partition does not cover all units");
+		  return false;
+	  }
+	  
+	  for (int i = 0 ; i < components.size() -1; i++) {
+		  for (int j = i +1 ; j < components.size(); j++) {
+			 Set<CompilationUnit> comp1 = components.get(i);
+			 Set<CompilationUnit> comp2 = components.get(j);
+			 for (CompilationUnit u1 : comp1) {
+				 for (CompilationUnit u2 : comp2) {
+					 if (u1 == u2 || u1.dependsOnTransitivlyUsing(u2, allUnits)) {
+						 System.err.println("Connections between components");
+						 return false;
+					 }
+				 }
+			 }
+		  }
+	  }
+	  
+	  return true;
+  }
+  
+  private boolean dependsOnTransitivlyUsing(CompilationUnit other, Set<CompilationUnit> availableUnits) {
+	  Queue<CompilationUnit> queue = new LinkedList<CompilationUnit>();
+	  Set<CompilationUnit> seenUnits = new HashSet<>();
+	  queue.add(this);
+	  seenUnits.add(this);
+	  while(!queue.isEmpty()) {
+		  CompilationUnit unit = queue.poll();
+		  if (unit == other)
+			  return true;
+		  for (CompilationUnit dep : unit.getCircularAndNonCircularModuleDependencies()) {
+			  if (availableUnits.contains(dep) && ! seenUnits.contains(dep)) {
+				  seenUnits.add(dep);
+				  queue.add(dep);
+			  }
+		  }
+	  }
+	  return false;
+  }
+  
+  private List<CompilationUnit> sortTopolocical(Set<CompilationUnit> connectedUnits) {
+	  List<CompilationUnit> sorting = new ArrayList<>(connectedUnits);
+	  Set<CompilationUnit> rootUnits = new HashSet<>(connectedUnits);
+	  for (CompilationUnit u : connectedUnits) {
+		  rootUnits.removeAll(u.getModuleDependencies());
+	  }
+	  assert rootUnits.size() > 0 : "Given Unit sets contains a cycle";
+	  
+	  final Map<CompilationUnit, Integer> rootDistance = new HashMap<>();
+	  for (CompilationUnit u : rootUnits) {
+		  rootDistance.put(u, 0);
+	  }
+	  
+	  Queue<CompilationUnit> queue = new LinkedList<>(rootUnits);
+	  while (!queue.isEmpty()) {
+		  CompilationUnit unit = queue.poll();
+		  int distance = rootDistance.get(unit);
+		  for (CompilationUnit dep : unit.getModuleDependencies()) {
+			  Integer depDistance = rootDistance.get(dep);
+			  if (depDistance == null) {
+				  rootDistance.put(dep, distance + 1);
+			  } else {
+				  rootDistance.put(dep, Math.max(depDistance, distance +1));
+			  }
+			  queue.add(dep);
+		  }
+	  }
+	  
+	  Collections.sort(sorting, new Comparator<CompilationUnit>() {
+
+		@Override
+		public int compare(CompilationUnit o1, CompilationUnit o2) {
+			return Integer.compare(rootDistance.get(o1), rootDistance.get(o2));
+		}
+	});
+	  assert validateTopolocialSorting(sorting) : "Topolocial sorting is not valid";
+	  return sorting;
+	   
+  }
+  
+  private boolean validateTopolocialSorting(List<CompilationUnit> units) {
+	  for (int i = units.size() - 1; i >= 1; i-- ) {
+		  for (int j = i - 1; j >= 0; j--) {
+			  if (units.get(i).dependsOnTransitivelyNoncircularly(units.get(j))) {
+				  return false;
+			  }
+		  }
+	  }
+	  return true;
+  }
+  
+  
+  private boolean validateVisitOrder(CompilationUnit before, CompilationUnit after) {
+    return (!after.dependsOnTransitively(before)) || (!after.dependsOnTransitivelyNoncircularly(before));
+  }
+  
+  private boolean validateVisitOrder(List<CompilationUnit> units) {
+    for (int i = 0; i < units.size() -1; i++) {
+      for (int j = i+1; j < units.size(); j++) {
+        if (!validateVisitOrder(units.get(i), units.get(j))) {
+        	System.out.println(i + " " + j);
+          return false;
+        }
+      }
+    }
+    return true;
   }
 
   /**
@@ -568,39 +739,49 @@ abstract public class CompilationUnit extends PersistableEntity {
   }
 
   public <T> T visit(ModuleVisitor<T> visitor, Mode thisMode) {
-    Pair<Map<CompilationUnit, Pair<Integer, Integer>>, Map<CompilationUnit, Mode>> p = computeRanks(thisMode);
-    final Map<CompilationUnit, Pair<Integer, Integer>> ranks = p.a;
+    Pair<Map<CompilationUnit, Integer>, Map<CompilationUnit, Mode>> p = computeRanks(thisMode);
+    final Map<CompilationUnit, Integer> ranks = p.a;
     Map<CompilationUnit, Mode> modes = p.b;
+    
 
-    Comparator<CompilationUnit> comparator = new Comparator<CompilationUnit>() {
-      public int compare(CompilationUnit m1, CompilationUnit m2) {
-        if (m1 == m2)
-          return 0;
-
-        Pair<Integer, Integer> r1 = ranks.get(m1);
-        Pair<Integer, Integer> r2 = ranks.get(m2);
-        int c = Integer.compare(r1.a, r2.b);
-        if (c != 0)
-          return c;
-        return r1.b.compareTo(r2.b);
-
-        /*
-         * if (m1.dependsOnTransitivelyNoncircularly(m2)) // m2 before m1 return
-         * 1;
-         * 
-         * if (m2.dependsOnTransitivelyNoncircularly(m1)) // m1 before m2 return
-         * -1;
-         * 
-         * // m1 and m2 are incomparable; return 0;
-         */
+   
+    // Group the dependencies by rank
+    // This defines the outer sorting
+    Map<Integer, Set<CompilationUnit>> rankGroups = new HashMap<>();
+    int minRank = 0;
+    for (CompilationUnit unit : ranks.keySet()) {
+      int rank = ranks.get(unit);
+      minRank = Math.min(rank, minRank);
+      if (rankGroups.get(rank) == null) {
+        rankGroups.put(rank, new HashSet<CompilationUnit>());
       }
-    };
+      rankGroups.get(rank).add(unit);
+    }
+    
+    // Now sort the compilation units in the same rank group
+    List<List<CompilationUnit>> sortedUnits = new ArrayList<>(rankGroups.size());
+    for (int i = 0; i >= minRank; i --) {
+      Set<CompilationUnit> group = rankGroups.get(i);
+      if (group == null) continue;
+      // Calculate the connected components
+      // The order of the connected components does not matter
+      Set<Set<CompilationUnit>> components = this.calculateConnectedComponents(group);
+    //  System.out.println("Rank Group: " + group);
+     // System.out.println("Components: " + components );
+      for (Set<CompilationUnit> component : components) {
+        // In a component sort the units by direct module dependency
+	    List<CompilationUnit> sortedComponent = this.sortTopolocical(component);
+       // System.out.println("Sorted: " + sortedComponent);
+        sortedUnits.add(sortedComponent);
+        assert validateVisitOrder(sortedComponent) : "Sorted connected component validates visit contract";
+      }
+    }
+   
+ //   System.out.println("Calculated list: " + sortedUnits);
 
-    CompilationUnit[] mods = ranks.keySet().toArray(new CompilationUnit[ranks.size()]);
-    Arrays.sort(mods, comparator);
-
+    // Now iterate over the calculated list
     T result = visitor.init();
-    for (CompilationUnit mod : mods) {
+    for (CompilationUnit mod : new AppendingIterable<>(sortedUnits)) {
       T newResult = visitor.visit(mod, modes.get(mod));
       result = visitor.combine(result, newResult);
       if (visitor.cancel(result))
