@@ -1,18 +1,14 @@
 package org.sugarj.common.cleardep;
 
 import java.util.Deque;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.Stack;
 
-import org.sugarj.common.cleardep.CompilationUnit.ModuleVisitor;
 import org.sugarj.common.cleardep.mode.Mode;
 import org.sugarj.common.path.RelativePath;
-import org.sugarj.util.Pair;
 
 public class BuildSchedule {
 
@@ -49,19 +45,23 @@ public class BuildSchedule {
     void merge(Task other) {
       if (other == this)
         return;
+      assert other.validateEdges();
       this.unitsToCompile.addAll(other.unitsToCompile);
       this.dependingTasks.remove(other);
       this.requiredTasks.remove(other);
+
       for (Task t : other.requiredTasks) {
-        t.dependingTasks.remove(other);
         if (t != this) {
+          boolean success = t.dependingTasks.remove(other);
+          assert success;
           t.dependingTasks.add(this);
           this.requiredTasks.add(t);
         }
       }
       for (Task t : other.dependingTasks) {
-        t.requiredTasks.remove(other);
         if (t != this) {
+          boolean success = t.requiredTasks.remove(other);
+          assert success;
           t.requiredTasks.add(this);
           this.dependingTasks.add(t);
         }
@@ -69,6 +69,24 @@ public class BuildSchedule {
       other.requiredTasks.clear();
       other.dependingTasks.clear();
       other.unitsToCompile.clear();
+      assert !this.requiredTasks.contains(this) : "Task requires itself";
+      assert !this.dependingTasks.contains(this) : "Task depends on itself";
+      assert this.validateEdges();
+    }
+
+    private boolean validateEdges() {
+      for (Task t : this.requiredTasks) {
+        if (!t.dependingTasks.contains(this)) {
+          return false;
+        }
+
+      }
+      for (Task t : this.dependingTasks) {
+        if (!t.requiredTasks.contains(this)) {
+          return false;
+        }
+      }
+      return true;
     }
 
     public boolean containsUnits(CompilationUnit unit) {
@@ -112,7 +130,7 @@ public class BuildSchedule {
     public TaskState getState() {
       return this.state;
     }
-    
+
     public Set<CompilationUnit> getUnitsToCompile() {
       return unitsToCompile;
     }
@@ -126,11 +144,15 @@ public class BuildSchedule {
     }
 
     public void addRequiredTask(Task task) {
+      if (task == this) {
+        throw new IllegalArgumentException("Cannot require itself");
+      }
       this.requiredTasks.add(task);
       task.dependingTasks.add(this);
+      assert this.validateEdges();
     }
 
-    public boolean dependsOn(Task task) {
+    public boolean requires(Task task) {
       return this.requiredTasks.contains(task);
     }
 
@@ -144,12 +166,21 @@ public class BuildSchedule {
       for (Task dep : this.requiredTasks) {
         reqs += dep.id + ",";
       }
-      String s = "Task_" + id + "_(" + reqs + "," + this.dependingTasks.size() + ")[";
+      String deps = "";
+      for (Task dep : this.dependingTasks) {
+        deps += dep.id + ",";
+      }
+      String s = "Task_" + id + "_(" + reqs + "|" + deps + ")[";
       for (CompilationUnit u : this.unitsToCompile)
         for (RelativePath p : u.getSourceArtifacts())
           s += p.getRelativePath() + ", ";
       s += "]";
       return s;
+    }
+
+    @Override
+    public int hashCode() {
+      return this.id;
     }
 
   }
@@ -255,7 +286,8 @@ public class BuildSchedule {
       collectedUnits.addAll(currentTask.unitsToCompile);
 
       for (CompilationUnit unit : currentTask.unitsToCompile) {
-   //     BuildScheduleBuilder.validateDeps("Flattened Schedule", unit, collectedUnits);
+        // BuildScheduleBuilder.validateDeps("Flattened Schedule", unit,
+        // collectedUnits);
 
       }
     }

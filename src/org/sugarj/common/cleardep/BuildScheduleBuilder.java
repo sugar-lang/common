@@ -1,6 +1,5 @@
 package org.sugarj.common.cleardep;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Deque;
 import java.util.HashMap;
@@ -38,6 +37,10 @@ public class BuildScheduleBuilder {
     Set<CompilationUnit> visitedUnits = new HashSet<>();
     Set<CompilationUnit> units = new HashSet<>(changedUnits);
     units.addAll(this.unitsToCompile);
+    
+    // Track whether deps has been removed, then we need to repair the graph
+    boolean depsRemoved = false;
+    
     while (!units.isEmpty()) {
       CompilationUnit changedUnit = units.iterator().next();
       units.remove(changedUnit);
@@ -56,11 +59,13 @@ public class BuildScheduleBuilder {
       // Remove compilation units which are not needed anymore
       for (CompilationUnit unit : changedUnit.getModuleDependencies()) {
         if (!dependencies.contains(unit)) {
+          depsRemoved = true;
           unit.moduleDependencies.remove(unit);
         }
       }
       for (CompilationUnit unit : changedUnit.getCircularModuleDependencies()) {
         if (!dependencies.contains(unit)) {
+          depsRemoved = true;
           unit.circularModuleDependencies.remove(unit);
         }
       }
@@ -68,7 +73,9 @@ public class BuildScheduleBuilder {
     }
     // Removing compilation units may invalidate the circular dependencies because circular dependencies may be not circular anymore
     // So we repair the graph, this may change all circular/not circular dependencies
-    this.repairGraph();
+    if (depsRemoved) {
+      this.repairGraph();
+    }
   }
 
   private void repairGraph() {
@@ -182,14 +189,9 @@ public class BuildScheduleBuilder {
       // Module dependencies and circular dependencies are processed the same
       // way, because non circular dependency
       // also may close a circle in the task graph
-      // This is slow rehashing everything without a real need
-      Set<CompilationUnit> allDeps = new HashSet<>();
-      allDeps.addAll(unit.getModuleDependencies());
-      allDeps.addAll(unit.getCircularModuleDependencies());
 
-      for (CompilationUnit dep : allDeps) {
+      for (CompilationUnit dep : unit.getCircularAndNonCircularModuleDependencies()) {
         if (this.needsToBeBuild(dep)) {
-          System.out.println("Build " + dep);
           // Get the task for the unit (may be null)
           Task depTask = tasksForUnits.get(dep);
 
@@ -199,35 +201,50 @@ public class BuildScheduleBuilder {
           // the tasks needs to be merged (and maybe depending tasks also)
           // This is done by checkForCycleAndMerge, returns true, if a cycle was
           // detected
-          boolean cyclicDep = BuildScheduleBuilder.checkForCycleAndMerge(task, depTask, dep, tasksForUnits, allTasks);
+          
+          // newTask is the task where all compilation units of task are in after merging
+          // this may be task itself but does not need to
+          // it is null when there is no cycle detected
+          Task newTask = checkForCycleAndMerge(task, depTask, dep, tasksForUnits, allTasks);
+         
 
           // Handle the non cyclic stuff
-          if (!cyclicDep) {
+          if (newTask == null) {
             if (depTask != null) {
               // The task has already been created, require this task to be
               // build
               // before
-              assert !depTask.dependsOn(task) : "Error in cycle detection, new task dependency closes cycle";
+              assert !depTask.requires(task) : "Error in cycle detection, new task dependency closes cycle";
               assert depTask.containsUnits(dep) : "Task for depedency does not contains the unit";
               task.addRequiredTask(depTask);
             } else {
               // There is no task, we need to create a new one
-
-              Task newTask = schedule.new Task(dep);
-              allTasks.add(newTask);
-              tasksForUnits.put(dep, newTask);
-              task.addRequiredTask(newTask);
+              depTask = schedule.new Task(dep);
+              allTasks.add(depTask);
+              tasksForUnits.put(dep, depTask);
+              task.addRequiredTask(depTask);
             }
+          } else {
+            // Set task to newTask
+        	  task = newTask;
           }
 
           // Finally put the dependency in the queue if it has not been
           // processed
           // already
           if (!processedUnits.contains(dep) && !dependencyQueue.contains(dep)) {
+           
             dependencyQueue.add(dep);
           }
         }
       }
+      
+      //Does not validates something new, the last assert statement in the does all
+      // But was helpful for debugging because errors are detected earlier
+      
+     // for (CompilationUnit u : processedUnits) {
+     // assert validateDependenciesOfTask(tasksForUnits.get(u), Collections.singleton(u));
+     // }
 
     }
 
@@ -275,14 +292,14 @@ public class BuildScheduleBuilder {
    *          tasks are merged
    * @return true if a cycle was found and corrected, otherwise false
    */
-  static boolean checkForCycleAndMerge(Task task, Task depTask, CompilationUnit dep, Map<CompilationUnit, Task> tasksForUnits, Set<Task> allTasks) {
+   Task checkForCycleAndMerge(Task task, Task depTask, CompilationUnit dep, Map<CompilationUnit, Task> tasksForUnits, Set<Task> allTasks) {
     // Easy case: task == depTask
     // is of course recursive
     if (depTask == task) {
       if (dep != null) {
         task.addUnit(dep);
       }
-      return true;
+      return task;
     }
 
     // First, we have to check whether there is a cyclic dependency between task
@@ -317,7 +334,7 @@ public class BuildScheduleBuilder {
 
     // If there is no cycle, we do not need to do more
     if (!cyclicDep) {
-      return false;
+      return null;
     }
 
     // Otherwise we need to merge, this is a bit tricky
@@ -351,76 +368,94 @@ public class BuildScheduleBuilder {
       for (Task old : new ArrayList<>(task.requiredTasks)) {
         assert old != task : "There is a wrong cycle in the graph";
         for (Task t : new ArrayList<>(old.requiredTasks)) {
-          checkForCycleAndMerge(old, t, null, tasksForUnits, allTasks);
+        	
+          Task newT = checkForCycleAndMerge(old, t, null, tasksForUnits, allTasks);
+          if (t == task) {
+      		task = newT;
+      	}
         }
       }
 
-      for (Task old : new HashSet<>(task.dependingTasks)) {
+      for (Task old : new ArrayList<>(task.dependingTasks)) {
         assert old != task : "There is a wrong cycle in the graph";
-        for (Task t : new HashSet<>(old.dependingTasks)) {
-          checkForCycleAndMerge(t, old, null, tasksForUnits, allTasks);
+        for (Task t : new ArrayList<>(old.dependingTasks)) {
+        	
+          Task newT = checkForCycleAndMerge(t, old, null, tasksForUnits, allTasks);
+          if (old == task) {
+        	  task = newT;
+      	}
         }
       }
+      
     }
-    return true;
+    return task;
 
+  }
+   
+   private Set<CompilationUnit> calculateReachableUnits(Task task) {
+	   Set<CompilationUnit> reachableUnits = new HashSet<>();
+	      Deque<Task> taskStack = new LinkedList<>();
+	      Set<Task> seenTasks = new HashSet<>();
+	      taskStack.addAll(task.requiredTasks);
+	      reachableUnits.addAll(task.unitsToCompile);
+	      Map<Task, Task> preds = new HashMap<>();
+	      for (Task r : task.requiredTasks) {
+	        preds.put(r, task);
+	      }
+	      while (!taskStack.isEmpty()) {
+	        Task t = taskStack.pop();
+	        if (t == task) {
+	          Task tmp = preds.get(t);
+	          List<Task> path = new LinkedList<>();
+	          path.add(t);
+	          while (tmp != task) {
+	            path.add(tmp);
+	            tmp = preds.get(tmp);
+	          }
+	          path.add(task);
+	          throw new AssertionError("Graph contains a cycle with " + path);
+	          
+	        }
+	        seenTasks.add(t);
+	        reachableUnits.addAll(t.unitsToCompile);
+	        for (Task r : t.requiredTasks)
+	          if (!seenTasks.contains(r)) {
+	            taskStack.push(r);
+	            preds.put(r, t);
+	          }
+	      }
+	      return reachableUnits;
+   }
+  
+  private boolean validateDependenciesOfTask(Task task, Set<CompilationUnit> singleUnits) {
+	  Set<CompilationUnit> reachableUnits = this.calculateReachableUnits(task);
+      for (CompilationUnit unit : singleUnits!= null? singleUnits : task.unitsToCompile) {
+        if (!validateDeps("BuildSchedule", unit, reachableUnits)) {
+          return false;
+        }
+      }
+    
+    return true;
   }
 
   private boolean validateBuildSchedule(Set<Task> allTasks) {
     for (Task task : allTasks) {
-      Set<CompilationUnit> reachableUnits = new HashSet<>();
-      Deque<Task> taskStack = new LinkedList<>();
-      Set<Task> seenTasks = new HashSet<>();
-      taskStack.addAll(task.requiredTasks);
-      reachableUnits.addAll(task.unitsToCompile);
-      Map<Task, Task> preds = new HashMap<>();
-      for (Task r : task.requiredTasks) {
-        preds.put(r, task);
-      }
-      while (!taskStack.isEmpty()) {
-        Task t = taskStack.pop();
-        if (t == task) {
-          Task tmp = preds.get(t);
-          List<Task> path = new LinkedList<>();
-          path.add(t);
-          int max = 0;
-          while (max < 10 && tmp != task) {
-            path.add(tmp);
-            tmp = preds.get(tmp);
-            max++;
-          }
-          if (max == 10) {
-            throw new AssertionError("Graph contains a cycle with wrong " + path);
-          }
-          path.add(task);
-          throw new AssertionError("Graph contains a cycle with " + path);
-        }
-        seenTasks.add(t);
-        reachableUnits.addAll(t.unitsToCompile);
-        for (Task r : t.requiredTasks)
-          if (!seenTasks.contains(r)) {
-            taskStack.push(r);
-            preds.put(r, t);
-          }
-      }
-      for (CompilationUnit unit : task.unitsToCompile) {
-        validateDeps("BuildSchedule", unit, reachableUnits);
+      if (!validateDependenciesOfTask(task, null)) {
+    	  return false;
       }
     }
     return true;
   }
 
-  void validateDeps(String prefix, CompilationUnit unit, Set<CompilationUnit> allDeps) {
-    for (CompilationUnit dep : unit.getModuleDependencies()) {
+  boolean validateDeps(String prefix, CompilationUnit unit, Set<CompilationUnit> allDeps) {
+    for (CompilationUnit dep : unit.getCircularAndNonCircularModuleDependencies()) {
       if (needsToBeBuild(dep) && !allDeps.contains(dep)) {
-        throw new AssertionError(prefix + ": Schedule violates dependency: " + unit + " on " + dep);
+       if (prefix != null)
+         System.err.println(prefix + ": Schedule violates dependency: " + unit + " on " + dep);
+       return false;
       }
     }
-    for (CompilationUnit dep : unit.getCircularModuleDependencies()) {
-      if (needsToBeBuild(dep) && !allDeps.contains(dep)) {
-        throw new AssertionError(prefix + ": Schedule violates circular dependency: " + unit + " on " + dep);
-      }
-    }
+    return true;
   }
 
   boolean needsToBeBuild(CompilationUnit unit) {
