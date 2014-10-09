@@ -47,6 +47,8 @@ abstract public class CompilationUnit extends PersistableEntity {
   protected Path targetDir;
   // Need to declare as HashMap, because HashMap allows null values, general Map
   // does not guarantee an keys with null value would be lost
+  // But HashMap is incompatible with unmodified maps which are stored in persisted units
+  // So this is not safe
   protected Map<RelativePath, Integer> sourceArtifacts;
   protected Map<CompilationUnit, Integer> moduleDependencies;
   protected Map<CompilationUnit, Integer> circularModuleDependencies;
@@ -267,6 +269,23 @@ abstract public class CompilationUnit extends PersistableEntity {
     } else {
       this.moduleDependencies.put(mod, mod.getInterfaceHash());
     }
+  }
+  
+  /**
+   * Removes a module dependency. Note: THIS METHOD IS NOT SAFE AND LEADS TO INCONSISTENT STATES.
+   * Therefore it is protected. The Problem is that removing a module dependency may change the
+   * spanning tree at another non local point.
+   * It is necessary to repair the dependency tree after removing a dependency
+   * This is not done after removing a module dependency because it requires to rebuild all dependencies
+   * which can be done after multiple removals once.
+   * @param mod
+   * @see BuildScheduleBuilder#repairGraph(Set)
+   */
+  protected void removeModuleDependency(CompilationUnit mod) {
+    // Just remove from both maps because mod is exactly in one
+    // But queriing is not cheaper
+    this.moduleDependencies.remove(mod);
+    this.circularModuleDependencies.remove(mod);
   }
 
   public void updateModuleDependencyInterface(CompilationUnit mod) {

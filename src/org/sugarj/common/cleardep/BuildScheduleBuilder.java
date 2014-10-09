@@ -27,12 +27,11 @@ public class BuildScheduleBuilder {
   }
 
   public void updateDependencies(DependencyExtractor extractor, Mode mode) {
-    System.out.println("Update Dependencies ...");
+    // Find all dependencies which have changed
     Set<CompilationUnit> changedUnits = new HashSet<>();
     for (CompilationUnit unit : this.unitsToCompile) {
       changedUnits.addAll(CompilationUnitUtils.findUnitsWithChangedSourceFiles(unit, mode));
     }
-    System.out.println("Changed files: " + changedUnits);
 
     Set<CompilationUnit> visitedUnits = new HashSet<>();
     Set<CompilationUnit> units = new HashSet<>(changedUnits);
@@ -45,28 +44,20 @@ public class BuildScheduleBuilder {
       CompilationUnit changedUnit = units.iterator().next();
       units.remove(changedUnit);
       Set<CompilationUnit> dependencies = extractor.extractDependencies(changedUnit);
-      System.out.println("Deps for " + changedUnit.getSourceArtifacts() + " - " + dependencies);
       // Find new Compilation units and add them
       for (CompilationUnit dep : dependencies) {
         if (!changedUnit.getModuleDependencies().contains(dep) && !changedUnit.getCircularModuleDependencies().contains(dep)) {
-          System.out.println("New dep: " + dep);
           changedUnit.addModuleDependency(dep);
-          if (!visitedUnits.contains(dep)) {
+          if (!visitedUnits.contains(dep) && !dep.isConsistentShallow(null, mode)) {
             units.add(dep);
           }
         }
       }
       // Remove compilation units which are not needed anymore
-      for (CompilationUnit unit : changedUnit.getModuleDependencies()) {
+      for (CompilationUnit unit : changedUnit.getCircularAndNonCircularModuleDependencies()) {
         if (!dependencies.contains(unit)) {
           depsRemoved = true;
-          unit.moduleDependencies.remove(unit);
-        }
-      }
-      for (CompilationUnit unit : changedUnit.getCircularModuleDependencies()) {
-        if (!dependencies.contains(unit)) {
-          depsRemoved = true;
-          unit.circularModuleDependencies.remove(unit);
+          unit.removeModuleDependency(unit);
         }
       }
       visitedUnits.add(changedUnit);
@@ -76,13 +67,13 @@ public class BuildScheduleBuilder {
     // So we repair the graph, this may change all circular/not circular
     // dependencies
     if (depsRemoved) {
-      this.repairGraph();
+      repairGraph(this.unitsToCompile);
     }
   }
 
-  private void repairGraph() {
+  public static void repairGraph(Set<CompilationUnit> rootUnits) {
     Set<CompilationUnit> allUnits = new HashSet<>();
-    for (CompilationUnit unit : this.unitsToCompile) {
+    for (CompilationUnit unit : rootUnits) {
       allUnits.addAll(CompilationUnitUtils.findAllUnits(unit));
     }
 
@@ -96,7 +87,7 @@ public class BuildScheduleBuilder {
 
     Set<CompilationUnit> seenUnits = new HashSet<>();
     Set<CompilationUnit> newUnits = new HashSet<>();
-    newUnits.addAll(this.unitsToCompile);
+    newUnits.addAll(rootUnits);
 
     while (!newUnits.isEmpty()) {
       CompilationUnit unit = newUnits.iterator().next();
@@ -117,8 +108,8 @@ public class BuildScheduleBuilder {
     }
 
     // Validate the result
-    assert validateDepGraphCycleFree(this.unitsToCompile) : "The repaired graph contains cycles";
-    assert validateCircDepsAreCircDeps(this.unitsToCompile) : "The graph contains circular dependencies which are not circular";
+    assert validateDepGraphCycleFree(rootUnits) : "The repaired graph contains cycles";
+    assert validateCircDepsAreCircDeps(rootUnits) : "The graph contains circular dependencies which are not circular";
   }
 
   /**
