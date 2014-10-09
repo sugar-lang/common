@@ -737,8 +737,12 @@ abstract public class CompilationUnit extends PersistableEntity {
   public <T> T visit(ModuleVisitor<T> visitor) {
     return visit(visitor, null);
   }
-
+  
   public <T> T visit(ModuleVisitor<T> visitor, Mode thisMode) {
+    return visit(visitor, thisMode, false);
+  }
+
+  public <T> T visit(ModuleVisitor<T> visitor, Mode thisMode, boolean reverse) {
     Pair<Map<CompilationUnit, Integer>, Map<CompilationUnit, Mode>> p = computeRanks(thisMode);
     final Map<CompilationUnit, Integer> ranks = p.a;
     Map<CompilationUnit, Mode> modes = p.b;
@@ -771,10 +775,17 @@ abstract public class CompilationUnit extends PersistableEntity {
       for (Set<CompilationUnit> component : components) {
         // In a component sort the units by direct module dependency
 	    List<CompilationUnit> sortedComponent = this.sortTopolocical(component);
+	    assert validateVisitOrder(sortedComponent) : "Sorted connected component validates visit contract";
        // System.out.println("Sorted: " + sortedComponent);
+	    if (reverse) {
+	      Collections.reverse(sortedComponent);
+	    }
         sortedUnits.add(sortedComponent);
-        assert validateVisitOrder(sortedComponent) : "Sorted connected component validates visit contract";
+       
       }
+    }
+    if (reverse) {
+      Collections.reverse(sortedUnits);
     }
    
  //   System.out.println("Calculated list: " + sortedUnits);
