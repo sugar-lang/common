@@ -9,24 +9,15 @@ import org.sugarj.util.Predicate;
 
 public class CompilationUnitUtils {
 
-  public static Set<CompilationUnit> findUnitsWithMatch(final Predicate<? super CompilationUnit> predicate, CompilationUnit startUnit, final boolean searchInDeps) {
+  public static Set<CompilationUnit> findUnitsWithMatch(final Predicate<? super CompilationUnit> predicate, CompilationUnit startUnit, boolean reverse) {
     final Set<CompilationUnit> results = new HashSet<>();
 
-    startUnit.visit(new ModuleVisitor<Void>() {
+    ModuleVisitor<Void> visitor =new ModuleVisitor<Void>() {
 
       @Override
       public Void visit(CompilationUnit mod, Mode mode) {
         if (predicate.isFullfilled(mod)) {
           results.add(mod);
-          return null;
-        }
-        if (searchInDeps) {
-          for (CompilationUnit u : mod.getCircularAndNonCircularModuleDependencies()) {
-            if (results.contains(u)) {
-              results.add(mod);
-              return null;
-            }
-          }
         }
         return null;
       }
@@ -45,7 +36,9 @@ public class CompilationUnitUtils {
       public boolean cancel(Void t) {
         return false;
       }
-    }, null, true);
+    };
+
+    startUnit.visit(visitor, null, reverse);
 
     return results;
   }
@@ -55,23 +48,13 @@ public class CompilationUnitUtils {
 
       @Override
       public boolean isFullfilled(CompilationUnit t) {
-        System.out.println(t.isConsistentWithSourceArtifacts(null, mode) + " - " + t.getSourceArtifacts());
         return !t.isConsistentWithSourceArtifacts(null, mode);
       }
 
     }, root, false);
   }
 
-  public static Set<CompilationUnit> findInconsistentUnits(CompilationUnit root, final Mode mode) {
-    return findUnitsWithMatch(new Predicate<CompilationUnit>() {
-
-      @Override
-      public boolean isFullfilled(CompilationUnit t) {
-        return !t.isPersisted() || !t.isConsistentShallow(null, mode);
-      }
-    }, root, true);
-  }
-
+  
   public static Set<CompilationUnit> findAllUnits(CompilationUnit root) {
     return findUnitsWithMatch(new Predicate<CompilationUnit>() {
 
