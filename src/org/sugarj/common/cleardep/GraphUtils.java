@@ -141,7 +141,7 @@ public class GraphUtils {
         for (CompilationUnit dep : p.a.getCircularAndNonCircularModuleDependencies()) {
           if (!visitedUnits.contains(dep)) {
             visitedUnits.add(dep);
-            stack.push(Pair.create(p.a, 1));
+            stack.push(Pair.create(dep, 1));
             depAdded = true;
           }
         }

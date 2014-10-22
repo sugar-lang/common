@@ -48,7 +48,7 @@ public class CompilationUnitUtils {
 
       @Override
       public boolean isFullfilled(CompilationUnit t) {
-        return !t.isConsistentWithSourceArtifacts(null, mode);
+        return !t.isPersisted() || !t.isConsistentWithSourceArtifacts(null, mode);
       }
 
     }, root, false);

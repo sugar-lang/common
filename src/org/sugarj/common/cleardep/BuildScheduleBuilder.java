@@ -28,16 +28,11 @@ public class BuildScheduleBuilder {
   }
 
   private void findChangedUnits(Mode mode) {
-    // Cache result because this needs to read the source files from the
-    // disk
-    if (this.changedUnits != null) {
-      return;
-    }
+
     this.changedUnits = new HashSet<>();
     for (CompilationUnit unit : this.unitsToCompile) {
       this.changedUnits.addAll(CompilationUnitUtils.findUnitsWithChangedSourceFiles(unit, mode));
     }
-
   }
 
   public void updateDependencies(DependencyExtractor extractor, Mode mode) {
