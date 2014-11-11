@@ -54,8 +54,10 @@ public class BuildScheduleBuilder {
       for (CompilationUnit dep : dependencies) {
         if (!changedUnit.getModuleDependencies().contains(dep) && !changedUnit.getCircularModuleDependencies().contains(dep)) {
           changedUnit.addModuleDependency(dep);
-          if (!visitedUnits.contains(dep) && (!dep.isPersisted() || !dep.isConsistentShallow(null, mode))) {
+          // Need to check dep iff rebuild all or if the unit is not persistet or inconsistent
+          if (!visitedUnits.contains(dep) && (this.scheduleMode == ScheduleMode.REBUILD_ALL) || !dep.isPersisted() || !dep.isConsistentShallow(null, mode) ) {
             units.add(dep);
+            visitedUnits.add(changedUnit);
           }
         }
       }
@@ -66,7 +68,7 @@ public class BuildScheduleBuilder {
           unit.removeModuleDependency(unit);
         }
       }
-      visitedUnits.add(changedUnit);
+      
     }
     // Removing compilation units may invalidate the circular dependencies
     // because circular dependencies may be not circular anymore
