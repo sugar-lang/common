@@ -53,6 +53,17 @@ public class CompilationUnitUtils {
 
     }, root, false);
   }
+  
+  public static Set<CompilationUnit> findInconsistentUnits(CompilationUnit root, final Mode mode) {
+	    return findUnitsWithMatch(new Predicate<CompilationUnit>() {
+
+	      @Override
+	      public boolean isFullfilled(CompilationUnit t) {
+	        return !t.isPersisted() || !t.isConsistentShallow(null, mode);
+	      }
+
+	    }, root, false);
+	  }
 
   
   public static Set<CompilationUnit> findAllUnits(CompilationUnit root) {
