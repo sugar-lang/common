@@ -155,7 +155,7 @@ public class BuildSchedule {
     this.rootTasks = new HashSet<>();
   }
   
-  public void setOrderedTasks(List<Task> tasks) {
+  protected void setOrderedTasks(List<Task> tasks) {
     this.orderedSchedule = tasks;
   }
   
