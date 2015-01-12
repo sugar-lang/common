@@ -49,34 +49,19 @@ public class BuildSchedule {
       return this.unitsToCompile.contains(unit);
     }
 
+    /**
+     * The task needs to be build iff one unit is not finished, not shallow consistent, or not consistent to interfaces.
+     */
     public boolean needsToBeBuild(Map<RelativePath, Integer> editedSourceFiles, Mode mode) {
-      // Check the states of the depending tasks
-      for (Task t : this.requiredTasks) {
-        switch (t.getState()) {
-        case OPEN:
-          break;
-        case IN_PROGESS:
-          throw new IllegalBuildStateException("Can only determine whether a task has to be build with depending tasks are build");
-        case FAILURE:
-          return false; // Do not need to build if depending builds
-          // failed
-        case SUCCESS:
-        }
-      }
-      // The task needs to be build iff one unit is not shallow consistent
-      // or
-      // not consistent or not consistent to interfaces
       for (CompilationUnit u : this.unitsToCompile) {
-        if (!u.isConsistentShallow(editedSourceFiles, mode)) {
-          return true;
-        }
-        if (!u.isConsistentToDependencyInterfaces()) {
+        if (!u.isFinished() || 
+            !u.isConsistentShallow(editedSourceFiles, mode) || 
+            !u.isConsistentToDependencyInterfaces()) {
           return true;
         }
       }
 
       return false;
-
     }
 
     public boolean isCompleted() {
@@ -89,10 +74,6 @@ public class BuildSchedule {
 
     public Set<CompilationUnit> getUnitsToCompile() {
       return unitsToCompile;
-    }
-
-    public void setState(TaskState state) {
-      this.state = state;
     }
 
     protected void addUnit(CompilationUnit unit) {

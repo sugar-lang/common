@@ -28,8 +28,14 @@ import org.sugarj.common.path.RelativePath;
 abstract public class CompilationUnit extends PersistableEntity {
 
 	public static final long serialVersionUID = -5713504273621720673L;
+	
+	public static enum State {
+	  NEW, INITIALIZED, IN_PROGESS, SUCCESS, FAILURE;
+	}
 
 	public CompilationUnit() { /* for deserialization only */ }
+	
+	private State state = State.NEW;
 
 	// Exactly one of `compiledCompilationUnit` and `editedCompilationUnit` is
 	// not null.
@@ -216,6 +222,7 @@ abstract public class CompilationUnit extends PersistableEntity {
 		externalFileDependencies = new HashMap<>();
 		generatedFiles = new HashMap<>();
 		this.interfaceHash = null;
+		state = State.INITIALIZED;
 	}
 
 	// *******************************
@@ -443,6 +450,22 @@ abstract public class CompilationUnit extends PersistableEntity {
 	// ********************************************
 
 	protected abstract boolean isConsistentExtend(Mode mode);
+	
+	public State getState() {
+	  return state;
+	}
+	
+  public void setState(State state) {
+	  this.state = state;
+	}
+	
+	public boolean isFinished() {
+	  return state == State.FAILURE || state == State.SUCCESS;
+	}
+	
+	public boolean hasFailed() {
+	  return state == State.FAILURE;
+	}
 
 	public Integer getInterfaceHash() {
 		return this.interfaceHash;
@@ -461,7 +484,7 @@ abstract public class CompilationUnit extends PersistableEntity {
 			Integer stamp = hasEdits ? editedSourceFiles.get(e.getKey()) : null;
 			if (stamp != null && !stamp.equals(e.getValue())) {
 				return false;
-			} else if (stamp == null && (!FileCommands.exists(e.getKey()) || e.getValue() != stamper.stampOf(e.getKey()))) {
+			} else if (stamp == null && e.getValue() != stamper.stampOf(e.getKey())) {
 				return false;
 			}
 		}
@@ -477,13 +500,13 @@ abstract public class CompilationUnit extends PersistableEntity {
 			return false;
 
 		for (Entry<Path, Integer> e : generatedFiles.entrySet()) {
-			if ((!FileCommands.fileExists(e.getKey())) || stamper.stampOf(e.getKey()) != e.getValue()) {
+			if (stamper.stampOf(e.getKey()) != e.getValue()) {
 				return false;
 			}
 		}
 
 		for (Entry<? extends Path, Integer> e : externalFileDependencies.entrySet()) {
-			if ((!FileCommands.fileExists(e.getKey())) ||stamper.stampOf(e.getKey()) != e.getValue()) {
+			if (stamper.stampOf(e.getKey()) != e.getValue()) {
 				return false;
 			}
 		}
@@ -604,6 +627,7 @@ abstract public class CompilationUnit extends PersistableEntity {
 	@Override
 	@SuppressWarnings("unchecked")
 	protected void readEntity(ObjectInputStream in) throws IOException, ClassNotFoundException {
+	  state = (State) in.readObject();
 		targetDir = (Path) in.readObject();
 		sourceArtifacts = (Map<RelativePath, Integer>) in.readObject();
 		generatedFiles = (Map<Path, Integer>) in.readObject();
@@ -656,6 +680,7 @@ abstract public class CompilationUnit extends PersistableEntity {
 
 	@Override
 	protected void writeEntity(ObjectOutputStream out) throws IOException {
+	  out.writeObject(state);
 		out.writeObject(targetDir);
 		out.writeObject(sourceArtifacts = Collections.unmodifiableMap(sourceArtifacts));
 		out.writeObject(generatedFiles = Collections.unmodifiableMap(generatedFiles));
