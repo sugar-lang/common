@@ -3,7 +3,6 @@ package org.sugarj.common.cleardep;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.Deque;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -68,6 +67,9 @@ public class GraphUtils {
       return this.stackUnits.contains(u);
     }
 
+    // For pseudo code see e.g. here
+    // https://en.wikipedia.org/wiki/Tarjan%27s_strongly_connected_components_algorithm
+
     public List<Set<CompilationUnit>> calculateStronglyConnectedUnits(Iterable<CompilationUnit> units) {
       this.index = 0;
       this.stack = new LinkedList<>();
@@ -125,7 +127,7 @@ public class GraphUtils {
    *         a unit u2 in he list does not depend on u2 in the spanning DAG
    */
   public static List<CompilationUnit> sortTopologicalFrom(CompilationUnit root) {
-	LinkedList<CompilationUnit> sorting = new LinkedList<>();
+    LinkedList<CompilationUnit> sorting = new LinkedList<>();
 
     Deque<Pair<CompilationUnit, Integer>> stack = new ArrayDeque<>();
     stack.push(Pair.create(root, 1));
@@ -167,7 +169,7 @@ public class GraphUtils {
   }
 
   private static boolean validateTopolocialSorting(List<CompilationUnit> units) {
-    for (int i = 0; i < units.size() - 1;  i++) {
+    for (int i = 0; i < units.size() - 1; i++) {
       for (int j = i + 1; j < units.size(); j++) {
         if (units.get(i).dependsOnTransitivelyNoncircularly(units.get(j))) {
           return false;
@@ -303,6 +305,13 @@ public class GraphUtils {
     return false;
   }
 
+  /**
+   * Repairs the dependency graph when e.g. dependencies has been removed. Than
+   * circular module dependencies maybe need to be moved to nun circular ones.
+   * This cannot be done by the {@link CompilationUnit} locally.
+   * 
+   * @param rootUnits
+   */
   public static void repairGraph(Set<CompilationUnit> rootUnits) {
     Set<CompilationUnit> allUnits = new HashSet<>();
     for (CompilationUnit unit : rootUnits) {

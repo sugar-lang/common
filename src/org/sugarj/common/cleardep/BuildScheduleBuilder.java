@@ -24,33 +24,33 @@ public class BuildScheduleBuilder {
     this.scheduleMode = mode;
     this.unitsToCompile = unitsToCompile;
   }
-  
+
   private boolean needToCheckDependencies(CompilationUnit dep, Mode mode) {
-	  return  this.scheduleMode == ScheduleMode.REBUILD_ALL || !dep.isPersisted() || !dep.isConsistentShallow(null, mode) ;
+    return this.scheduleMode == ScheduleMode.REBUILD_ALL || !dep.isPersisted() || !dep.isConsistentShallow(null, mode);
   }
 
   public void updateDependencies(DependencyExtractor extractor, Mode mode) {
     // Find all dependencies which have changed
-	// We need only units with changed source files, then dependencies may have changed
-	// Actually the units do not need to be consistent to e.g. generated files
-	Set<CompilationUnit> changedUnits = new HashSet<>();
-	for (CompilationUnit unit : this.unitsToCompile) {
-	      changedUnits.addAll(CompilationUnitUtils.findUnitsWithChangedSourceFiles(unit, mode));
-	}
-    
+    // We need only units with changed source files, then dependencies may have
+    // changed
+    // Actually the units do not need to be consistent to e.g. generated files
+    Set<CompilationUnit> changedUnits = new HashSet<>();
+    for (CompilationUnit unit : this.unitsToCompile) {
+      changedUnits.addAll(CompilationUnitUtils.findUnitsWithChangedSourceFiles(unit, mode));
+    }
 
     // Set for cycle detection and fast contains check
     Set<CompilationUnit> visitedUnits = new HashSet<>();
     // Queue of units which have to be processed
     List<CompilationUnit> units = new LinkedList<>(changedUnits);
-    
+
     // Filter out root units which are consistent -> no need to check them
     for (CompilationUnit unit : this.unitsToCompile) {
-    	if (needToCheckDependencies(unit, mode)) {
-    	units.add(unit);
-    	}
+      if (needToCheckDependencies(unit, mode)) {
+        units.add(unit);
+      }
     }
-    
+
     // But mark all root units as seen to avoid multiple consistency checks
     visitedUnits.addAll(changedUnits);
     visitedUnits.addAll(this.unitsToCompile);
@@ -65,13 +65,15 @@ public class BuildScheduleBuilder {
       for (CompilationUnit dep : dependencies) {
         if (!changedUnit.getModuleDependencies().contains(dep) && !changedUnit.getCircularModuleDependencies().contains(dep)) {
           changedUnit.addModuleDependency(dep);
-          // Need to check dep iff rebuild all or if the unit is not persistent or inconsistent
+          // Need to check dep iff rebuild all or if the unit is not persistent
+          // or inconsistent
           if (!visitedUnits.contains(dep)) {
-        	 if (this.needToCheckDependencies(dep, mode)) {
-        		 units.add(dep);
+            if (this.needToCheckDependencies(dep, mode)) {
+              units.add(dep);
             }
-        	 // Add it always to visited units to avoid multiple consistency checks
-        	 visitedUnits.add(dep);
+            // Add it always to visited units to avoid multiple consistency
+            // checks
+            visitedUnits.add(dep);
           }
         }
       }
@@ -79,10 +81,10 @@ public class BuildScheduleBuilder {
       for (CompilationUnit unit : changedUnit.getCircularAndNonCircularModuleDependencies()) {
         if (!dependencies.contains(unit)) {
           depsRemoved = true;
-          unit.removeModuleDependency(unit);
+          changedUnit.removeModuleDependency(unit);
         }
       }
-      
+
     }
     // Removing compilation units may invalidate the circular dependencies
     // because circular dependencies may be not circular anymore
@@ -120,11 +122,10 @@ public class BuildScheduleBuilder {
     // Calculate strongly connected components: O(E+V)
     List<Set<CompilationUnit>> sccs = GraphUtils.calculateStronglyConnectedComponents(this.unitsToCompile);
 
-    // Create tasks on fill map to find tasks for units: O(V)
+    // Create tasks and fill map to find tasks for units: O(V)
     Map<CompilationUnit, Task> tasksForUnit = new HashMap<>();
     List<Task> buildTasks = new ArrayList<>(sccs.size());
     for (Set<CompilationUnit> scc : sccs) {
-      System.out.println(scc);
       Task t = new Task(scc);
       buildTasks.add(t);
       for (CompilationUnit u : t.getUnitsToCompile()) {
@@ -146,23 +147,24 @@ public class BuildScheduleBuilder {
 
     // Prefilter tasks from which we know that they are consistent: O (V+E)
     // Why not filter consistent units before calculating the build
-    // schedule:
-    // This required calculating strongly connected components and a
+    // schedule?:
+    // Answer:This requires calculating strongly connected components and a
     // topological order of them
     // which we also need for calculating the build schedule
     if (this.scheduleMode == ScheduleMode.REBUILD_INCONSISTENT) {
-      // Here we need all inconsistent (shallowly) units, because we need to recompile them
+      // Here we need all inconsistent (shallowly) units, because we need to
+      // recompile them
       // Deep inconsistence will be calculated more efficiently
       Set<CompilationUnit> changedUnits = new HashSet<>();
       for (CompilationUnit unit : this.unitsToCompile) {
-         changedUnits.addAll(CompilationUnitUtils.findInconsistentUnits(unit, mode));
+        changedUnits.addAll(CompilationUnitUtils.findInconsistentUnits(unit, mode));
       }
       // All tasks which changed units are inconsistent
       Set<Task> inconsistentTasks = new HashSet<>();
       for (CompilationUnit u : changedUnits) {
         inconsistentTasks.add(tasksForUnit.get(u));
       }
-      // All transitivly reachable to
+      // All transitivly reachable too
       // Make use of the reverse topological order we have already
       Iterator<Task> buildTaskIter = buildTasks.iterator();
       while (buildTaskIter.hasNext()) {
@@ -171,6 +173,8 @@ public class BuildScheduleBuilder {
         if (inconsistentTasks.contains(task)) {
           taskConsistent = false;
         } else {
+          // Reverse topological order of sccs guarantees that all required
+          // tasks has been processed
           for (Task reqTask : task.requiredTasks) {
             if (inconsistentTasks.contains(reqTask)) {
               inconsistentTasks.add(task);
