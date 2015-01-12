@@ -33,12 +33,10 @@ abstract public class CompilationUnit extends PersistableEntity {
 
 	public static final long serialVersionUID = -5713504273621720673L;
 
-	public CompilationUnit() { /* for deserialization only */
-	}
+	public CompilationUnit() { /* for deserialization only */ }
 
 	// Exactly one of `compiledCompilationUnit` and `editedCompilationUnit` is
-	// not
-	// null.
+	// not null.
 	protected CompilationUnit compiledCompilationUnit;
 	protected CompilationUnit editedCompilationUnit;
 
@@ -47,11 +45,9 @@ abstract public class CompilationUnit extends PersistableEntity {
 	protected Integer interfaceHash;
 	protected Path targetDir;
 	// Need to declare as HashMap, because HashMap allows null values, general
-	// Map
-	// does not guarantee an keys with null value would be lost
+	// Map does not guarantee an keys with null value would be lost
 	// But HashMap is incompatible with unmodified maps which are stored in
-	// persisted units
-	// So this is not safe
+	// persisted units. So this is not safe.
 	protected Map<RelativePath, Integer> sourceArtifacts;
 	protected Map<CompilationUnit, Integer> moduleDependencies;
 	protected Map<CompilationUnit, Integer> circularModuleDependencies;
