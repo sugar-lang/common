@@ -131,7 +131,7 @@ abstract public class CompilationUnit extends PersistableEntity {
 			if (dep.compiledCompilationUnit == null)
 				compiled.circularModuleDependencies.put(dep, entry.getValue());
 			else
-				compiled.addCircularModuleDependency(dep.compiledCompilationUnit);
+			  compiled.circularModuleDependencies.put(dep.compiledCompilationUnit, dep.compiledCompilationUnit.getInterfaceHash());
 		}
 
 		for (Path p : externalFileDependencies.keySet())
