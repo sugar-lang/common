@@ -461,13 +461,17 @@ abstract public class CompilationUnit extends PersistableEntity {
 		if (!isConsistentWithSourceArtifacts(editedSourceFiles, mode))
 			return false;
 
-		for (Entry<Path, Integer> e : generatedFiles.entrySet())
-			if (stamper.stampOf(e.getKey()) != e.getValue())
+		for (Entry<Path, Integer> e : generatedFiles.entrySet()) {
+			if ((!FileCommands.fileExists(e.getKey())) || stamper.stampOf(e.getKey()) != e.getValue()) {
 				return false;
+			}
+		}
 
-		for (Entry<? extends Path, Integer> e : externalFileDependencies.entrySet())
-			if (stamper.stampOf(e.getKey()) != e.getValue())
+		for (Entry<? extends Path, Integer> e : externalFileDependencies.entrySet()) {
+			if ((!FileCommands.fileExists(e.getKey())) ||stamper.stampOf(e.getKey()) != e.getValue()) {
 				return false;
+			}
+		}
 
 		if (!isConsistentExtend(mode))
 			return false;
@@ -552,7 +556,6 @@ abstract public class CompilationUnit extends PersistableEntity {
 		return visit(visitor, thisMode, false);
 	}
 
-	
 	public <T> T visit(ModuleVisitor<T> visitor, Mode thisMode, boolean reverseOrder) {
 		List<CompilationUnit> topologicalOrder = GraphUtils.sortTopologicalFrom(this);
 		if (reverseOrder) {

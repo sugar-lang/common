@@ -18,46 +18,60 @@ import org.sugarj.common.path.RelativePath;
 public class BuildScheduleBuilder {
 
   private Set<CompilationUnit> unitsToCompile;
-  private Set<CompilationUnit> changedUnits;
   private ScheduleMode scheduleMode;
 
   public BuildScheduleBuilder(Set<CompilationUnit> unitsToCompile, ScheduleMode mode) {
     this.scheduleMode = mode;
     this.unitsToCompile = unitsToCompile;
-    this.changedUnits = null;
   }
-
-  private void findChangedUnits(Mode mode) {
-
-    this.changedUnits = new HashSet<>();
-    for (CompilationUnit unit : this.unitsToCompile) {
-      this.changedUnits.addAll(CompilationUnitUtils.findUnitsWithChangedSourceFiles(unit, mode));
-    }
+  
+  private boolean needToCheckDependencies(CompilationUnit dep, Mode mode) {
+	  return  this.scheduleMode == ScheduleMode.REBUILD_ALL || !dep.isPersisted() || !dep.isConsistentShallow(null, mode) ;
   }
 
   public void updateDependencies(DependencyExtractor extractor, Mode mode) {
     // Find all dependencies which have changed
-    this.findChangedUnits(mode);
+	// We need only units with changed source files, then dependencies may have changed
+	// Actually the units do not need to be consistent to e.g. generated files
+	Set<CompilationUnit> changedUnits = new HashSet<>();
+	for (CompilationUnit unit : this.unitsToCompile) {
+	      changedUnits.addAll(CompilationUnitUtils.findUnitsWithChangedSourceFiles(unit, mode));
+	}
+    
 
+    // Set for cycle detection and fast contains check
     Set<CompilationUnit> visitedUnits = new HashSet<>();
-    Set<CompilationUnit> units = new HashSet<>(changedUnits);
-    units.addAll(this.unitsToCompile);
+    // Queue of units which have to be processed
+    List<CompilationUnit> units = new LinkedList<>(changedUnits);
+    
+    // Filter out root units which are consistent -> no need to check them
+    for (CompilationUnit unit : this.unitsToCompile) {
+    	if (needToCheckDependencies(unit, mode)) {
+    	units.add(unit);
+    	}
+    }
+    
+    // But mark all root units as seen to avoid multiple consistency checks
+    visitedUnits.addAll(changedUnits);
+    visitedUnits.addAll(this.unitsToCompile);
 
     // Track whether deps has been removed, then we need to repair the graph
     boolean depsRemoved = false;
 
     while (!units.isEmpty()) {
-      CompilationUnit changedUnit = units.iterator().next();
-      units.remove(changedUnit);
+      CompilationUnit changedUnit = units.remove(0);
       Set<CompilationUnit> dependencies = extractor.extractDependencies(changedUnit);
       // Find new Compilation units and add them
       for (CompilationUnit dep : dependencies) {
         if (!changedUnit.getModuleDependencies().contains(dep) && !changedUnit.getCircularModuleDependencies().contains(dep)) {
           changedUnit.addModuleDependency(dep);
-          // Need to check dep iff rebuild all or if the unit is not persistet or inconsistent
-          if (!visitedUnits.contains(dep) && (this.scheduleMode == ScheduleMode.REBUILD_ALL) || !dep.isPersisted() || !dep.isConsistentShallow(null, mode) ) {
-            units.add(dep);
-            visitedUnits.add(changedUnit);
+          // Need to check dep iff rebuild all or if the unit is not persistent or inconsistent
+          if (!visitedUnits.contains(dep)) {
+        	 if (this.needToCheckDependencies(dep, mode)) {
+        		 units.add(dep);
+            }
+        	 // Add it always to visited units to avoid multiple consistency checks
+        	 visitedUnits.add(dep);
           }
         }
       }
@@ -137,10 +151,15 @@ public class BuildScheduleBuilder {
     // topological order of them
     // which we also need for calculating the build schedule
     if (this.scheduleMode == ScheduleMode.REBUILD_INCONSISTENT) {
-      this.findChangedUnits(mode);
+      // Here we need all inconsistent (shallowly) units, because we need to recompile them
+      // Deep inconsistence will be calculated more efficiently
+      Set<CompilationUnit> changedUnits = new HashSet<>();
+      for (CompilationUnit unit : this.unitsToCompile) {
+         changedUnits.addAll(CompilationUnitUtils.findInconsistentUnits(unit, mode));
+      }
       // All tasks which changed units are inconsistent
       Set<Task> inconsistentTasks = new HashSet<>();
-      for (CompilationUnit u : this.changedUnits) {
+      for (CompilationUnit u : changedUnits) {
         inconsistentTasks.add(tasksForUnit.get(u));
       }
       // All transitivly reachable to
