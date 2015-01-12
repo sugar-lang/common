@@ -65,43 +65,30 @@ abstract public class CompilationUnit extends PersistableEntity {
 	@SuppressWarnings("unchecked")
 	final protected static <E extends CompilationUnit> E create(Class<E> cl, Stamper stamper, Path compileDep, Path compileTarget, Path editedDep,
 			Path editedTarget, Set<RelativePath> sourceFiles, Map<RelativePath, Integer> editedSourceFiles, Mode mode, Synthesizer syn) throws IOException {
-		E compileE;
-		try {
-			compileE = PersistableEntity.read(cl, stamper, compileDep);
-		} catch (IOException e) {
-			e.printStackTrace();
-			compileE = null;
-		}
-		if (compileE == null)
-			compileE = PersistableEntity.create(cl, stamper, compileDep);
+		E compileE = PersistableEntity.tryReadElseCreate(cl, stamper, compileDep);
 		compileE.targetDir = compileTarget;
 
 		E editedE;
-		if (compileE.editedCompilationUnit != null)
+		if (compileE.editedCompilationUnit != null) {
 			editedE = (E) compileE.editedCompilationUnit;
+		  editedE.targetDir = editedTarget;
+		  if (editedE.compiledCompilationUnit == null)
+		    editedE.compiledCompilationUnit = compileE;		  
+		}
 		else {
 			editedE = PersistableEntity.create(cl, stamper, editedDep);
+			editedE.targetDir = editedTarget;
+			editedE.compiledCompilationUnit = compileE;
 			compileE.editedCompilationUnit = editedE;
 		}
-
-		if (editedE.compiledCompilationUnit == null)
-			editedE.compiledCompilationUnit = compileE;
-		editedE.targetDir = editedTarget;
 
 		E e = DoCompileMode.isDoCompile(mode) ? compileE : editedE;
 		e.init();
 		e.syn = syn;
 		if (syn != null)
 			syn.markSynthesized(e);
-
-		for (RelativePath sourceFile : sourceFiles) {
-			Integer editedStamp = editedSourceFiles == null ? null : editedSourceFiles.get(sourceFile);
-			if (editedStamp != null)
-				e.addSourceArtifact(sourceFile, editedStamp);
-			else
-				e.addSourceArtifact(sourceFile);
-		}
-
+		e.addSourceArtifacts(sourceFiles, editedSourceFiles);
+		
 		return e;
 	}
 
@@ -225,6 +212,17 @@ abstract public class CompilationUnit extends PersistableEntity {
 	protected void addSourceArtifact(RelativePath file, int stampOfFile) {
 		sourceArtifacts.put(file, stampOfFile);
 	}
+	
+  protected void addSourceArtifacts(Set<RelativePath> sourceFiles, Map<RelativePath, Integer> editedSourceFiles) {
+    boolean hasEdits = editedSourceFiles != null;
+    for (RelativePath sourceFile : sourceFiles) {
+      Integer editedStamp = hasEdits ? editedSourceFiles.get(sourceFile) : null;
+      if (editedStamp != null)
+        addSourceArtifact(sourceFile, editedStamp);
+      else
+        addSourceArtifact(sourceFile);
+    }
+  }
 
 	public void addExternalFileDependency(Path file) {
 		addExternalFileDependency(file, stamper.stampOf(file));

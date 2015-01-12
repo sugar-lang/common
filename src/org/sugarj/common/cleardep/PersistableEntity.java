@@ -97,6 +97,16 @@ public abstract class PersistableEntity implements Serializable {
     return entity;
   }
   
+  final protected static <E extends PersistableEntity> E tryReadElseCreate(Class<E> clazz, Stamper stamper, Path p) throws IOException {
+    try {
+      return read(clazz, stamper, p);
+    }
+    catch (IOException e) {
+      e.printStackTrace();
+      return create(clazz, stamper, p);
+    }
+  }
+  
   final protected static <E extends PersistableEntity> E read(Class<E> clazz, Stamper stamper, Path p) throws IOException {
     if (p == null)
       return null;
