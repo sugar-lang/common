@@ -16,7 +16,7 @@ public class BuildSchedule {
     OPEN, IN_PROGESS, SUCCESS, FAILURE;
   }
 
-  static int maxID = 0;
+  private static int maxID = 0;
 
   public static class Task {
 
@@ -26,16 +26,16 @@ public class BuildSchedule {
     private TaskState state;
     private int id;
 
-    public Task() {
+    protected Task() {
       this(new HashSet<CompilationUnit>());
     }
 
-    public Task(CompilationUnit unit) {
+    protected Task(CompilationUnit unit) {
       this();
       this.unitsToCompile.add(unit);
     }
     
-    public Task(Set<CompilationUnit> units) {
+    protected Task(Set<CompilationUnit> units) {
     	Objects.requireNonNull(units);
       this.unitsToCompile = units;
       this.requiredTasks = new HashSet<>();
@@ -45,7 +45,7 @@ public class BuildSchedule {
       maxID++;
     }
 
-    public boolean containsUnits(CompilationUnit unit) {
+    protected boolean containsUnits(CompilationUnit unit) {
       return this.unitsToCompile.contains(unit);
     }
 
@@ -95,11 +95,11 @@ public class BuildSchedule {
       this.state = state;
     }
 
-    public void addUnit(CompilationUnit unit) {
+    protected void addUnit(CompilationUnit unit) {
       this.unitsToCompile.add(unit);
     }
 
-    public void addRequiredTask(Task task) {
+    protected void addRequiredTask(Task task) {
       if (task == this) {
         throw new IllegalArgumentException("Cannot require itself");
       }
@@ -107,15 +107,15 @@ public class BuildSchedule {
       task.tasksRequiringMe.add(this);
     }
 
-    public boolean requires(Task task) {
+    protected boolean requires(Task task) {
       return this.requiredTasks.contains(task);
     }
 
-    public boolean hasNoRequiredTasks() {
+    protected boolean hasNoRequiredTasks() {
       return this.requiredTasks.isEmpty();
     }
     
-    public void remove() {
+    protected void remove() {
     	for (Task t : this.requiredTasks) {
     		t.tasksRequiringMe.remove(this);
     	}
@@ -149,7 +149,7 @@ public class BuildSchedule {
   private Set<Task> rootTasks;
   private List<Task> orderedSchedule;
   
-  public BuildSchedule() {
+  protected BuildSchedule() {
     this.rootTasks = new HashSet<>();
   }
   
@@ -161,7 +161,7 @@ public class BuildSchedule {
     return orderedSchedule;
   }
 
-  public void addRootTask(Task task) {
+  protected void addRootTask(Task task) {
     assert task.hasNoRequiredTasks() : "Given task is not a root";
     this.rootTasks.add(task);
   }
