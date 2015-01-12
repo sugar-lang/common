@@ -78,7 +78,10 @@ public class BuildScheduleBuilder {
         }
       }
       // Remove compilation units which are not needed anymore
-      for (CompilationUnit unit : changedUnit.getCircularAndNonCircularModuleDependencies()) {
+      // Need to copy existing units because they will be modified
+      ArrayList<CompilationUnit> allUnits = new ArrayList<CompilationUnit>(changedUnit.getCircularModuleDependencies());
+      allUnits.addAll(changedUnit.getModuleDependencies());
+      for (CompilationUnit unit : allUnits) {
         if (!dependencies.contains(unit)) {
           depsRemoved = true;
           changedUnit.removeModuleDependency(unit);
