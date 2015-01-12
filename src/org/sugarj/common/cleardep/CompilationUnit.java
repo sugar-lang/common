@@ -3,17 +3,14 @@ package org.sugarj.common.cleardep;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.Queue;
 import java.util.Set;
 
 import org.sugarj.common.AppendingIterable;
@@ -22,7 +19,6 @@ import org.sugarj.common.cleardep.mode.DoCompileMode;
 import org.sugarj.common.cleardep.mode.Mode;
 import org.sugarj.common.path.Path;
 import org.sugarj.common.path.RelativePath;
-import org.sugarj.util.Pair;
 
 /**
  * Dependency management for modules.
@@ -88,13 +84,13 @@ abstract public class CompilationUnit extends PersistableEntity {
 		return e;
 	}
 
+	/**
+	 * Reads a CompilationUnit from memory or disk. The returned Compilation unit may or may not be consistent.
+	 */
 	@SuppressWarnings("unchecked")
-	final protected static <E extends CompilationUnit> Pair<E, Boolean> read(Class<E> cl, Stamper stamper, Path compileDep, Path editedDep,
+	final protected static <E extends CompilationUnit> E read(Class<E> cl, Stamper stamper, Path compileDep, Path editedDep,
 			Map<RelativePath, Integer> editedSourceFiles, Mode mode) throws IOException {
 		E compileE = PersistableEntity.read(cl, stamper, compileDep);
-		if (compileE != null && compileE.isConsistent(editedSourceFiles, mode))
-			// valid compile is good for compilation and parsing
-			return Pair.create(compileE, true);
 
 		E editedE;
 		if (compileE != null && compileE.editedCompilationUnit != null)
@@ -102,18 +98,43 @@ abstract public class CompilationUnit extends PersistableEntity {
 		else
 			editedE = PersistableEntity.read(cl, stamper, editedDep);
 
-		// valid edit is good for compilation after lifting
-		if (DoCompileMode.isDoCompile(mode) && editedE != null && editedE.isConsistent(editedSourceFiles, mode)) {
-			editedE.liftEditedToCompiled();
-			return Pair.create((E) editedE.compiledCompilationUnit, true);
-		}
-
-		// valid edit is good for parsing
-		if (!DoCompileMode.isDoCompile(mode) && editedE != null && editedE.isConsistent(editedSourceFiles, mode))
-			return Pair.create(editedE, true);
-
-		return Pair.create(DoCompileMode.isDoCompile(mode) ? compileE : editedE, false);
+		if (DoCompileMode.isDoCompile(mode))
+		  return compileE; 
+		else
+		  return editedE;
 	}
+	
+	/**
+	 * Reads a CompilationUnit from memory or disk. The returned Compilation unit is guaranteed to be consistent.
+	 * 
+	 * @return null if no consistent compilation unit is available.
+	 */
+	@SuppressWarnings("unchecked")
+  final protected static <E extends CompilationUnit> E readConsistent(Class<E> cl, Stamper stamper, Path compileDep, Path editedDep,
+      Map<RelativePath, Integer> editedSourceFiles, Mode mode) throws IOException {
+    E compileE = PersistableEntity.read(cl, stamper, compileDep);
+    if (compileE != null && compileE.isConsistent(editedSourceFiles, mode))
+      // valid compile is good for compilation and parsing
+      return compileE;
+
+    E editedE;
+    if (compileE != null && compileE.editedCompilationUnit != null)
+      editedE = (E) compileE.editedCompilationUnit;
+    else
+      editedE = PersistableEntity.read(cl, stamper, editedDep);
+
+    // valid edit is good for compilation after lifting
+    if (DoCompileMode.isDoCompile(mode) && editedE != null && editedE.isConsistent(editedSourceFiles, mode)) {
+      editedE.liftEditedToCompiled();
+      return (E) editedE.compiledCompilationUnit;
+    }
+
+    // valid edit is good for parsing
+    if (!DoCompileMode.isDoCompile(mode) && editedE != null && editedE.isConsistent(editedSourceFiles, mode))
+      return editedE;
+
+    return null;
+  }
 
 	protected void copyContentTo(CompilationUnit compiled) {
 		compiled.sourceArtifacts.putAll(sourceArtifacts);
