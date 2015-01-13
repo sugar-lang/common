@@ -18,11 +18,15 @@ import org.spoofax.interpreter.terms.IStrategoString;
 import org.spoofax.interpreter.terms.IStrategoTerm;
 import org.spoofax.interpreter.terms.ITermFactory;
 import org.spoofax.jsglr.client.InvalidParseTableException;
+import org.spoofax.jsglr.client.SGLR;
 import org.spoofax.jsglr.client.imploder.IToken;
 import org.spoofax.jsglr.client.imploder.ImploderAttachment;
 import org.spoofax.jsglr.client.imploder.ImploderOriginTermFactory;
 import org.spoofax.jsglr.client.imploder.Token;
 import org.spoofax.jsglr.io.ParseTableManager;
+import org.spoofax.jsglr.shared.BadTokenException;
+import org.spoofax.jsglr.shared.SGLRException;
+import org.spoofax.jsglr.shared.TokenExpectedException;
 import org.spoofax.terms.StrategoListIterator;
 import org.spoofax.terms.TermFactory;
 import org.spoofax.terms.attachments.ParentAttachment;
@@ -305,6 +309,14 @@ public class ATermCommands {
     newServices.add(builder);
 
     return newServices;
+  }
+  
+  public static List<IStrategoTerm> parseEditorServiceFile(SGLR editorServicesParser, Path editorFile) throws SGLRException, InterruptedException, IOException {
+    IStrategoTerm initEditor = (IStrategoTerm) editorServicesParser.parse(FileCommands.readFileAsString(editorFile), editorFile.getAbsolutePath(), "Module");
+    IStrategoTerm services = ATermCommands.getApplicationSubterm(initEditor, "Module", 2);
+    if (!ATermCommands.isList(services))
+      throw new IllegalStateException("initial editor ill-formed");
+    return ATermCommands.getList(services);
   }
 
   public static void setErrorMessage(IStrategoTerm toplevelDecl, String msg) {
