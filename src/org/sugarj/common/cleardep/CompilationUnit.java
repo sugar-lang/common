@@ -3,6 +3,7 @@ package org.sugarj.common.cleardep;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
@@ -15,8 +16,6 @@ import java.util.Set;
 
 import org.sugarj.common.AppendingIterable;
 import org.sugarj.common.FileCommands;
-import org.sugarj.common.cleardep.mode.DoCompileMode;
-import org.sugarj.common.cleardep.mode.Mode;
 import org.sugarj.common.path.Path;
 import org.sugarj.common.path.RelativePath;
 
@@ -37,10 +36,11 @@ abstract public class CompilationUnit extends PersistableEntity {
 	
 	private State state = State.NEW;
 
-	// Exactly one of `compiledCompilationUnit` and `editedCompilationUnit` is
-	// not null.
-	protected CompilationUnit compiledCompilationUnit;
-	protected CompilationUnit editedCompilationUnit;
+	/**
+	 * Mirrors store alternative compilation results for the same compilation unit compiled with different modes.
+	 */
+	protected List<CompilationUnit> mirrors;
+	protected Mode<?> mode;
 
 	protected Synthesizer syn;
 
@@ -60,32 +60,14 @@ abstract public class CompilationUnit extends PersistableEntity {
 	// Methods for initialization
 	// **************************
 
-	@SuppressWarnings("unchecked")
-	final protected static <E extends CompilationUnit> E create(Class<E> cl, Stamper stamper, Path compileDep, Path compileTarget, Path editedDep,
-			Path editedTarget, Set<RelativePath> sourceFiles, Map<RelativePath, Integer> editedSourceFiles, Mode mode, Synthesizer syn) throws IOException {
-		E compileE = PersistableEntity.tryReadElseCreate(cl, stamper, compileDep);
-		compileE.targetDir = compileTarget;
-
-		E editedE;
-		if (compileE.editedCompilationUnit != null) {
-			editedE = (E) compileE.editedCompilationUnit;
-		  editedE.targetDir = editedTarget;
-		  if (editedE.compiledCompilationUnit == null)
-		    editedE.compiledCompilationUnit = compileE;		  
-		}
-		else {
-			editedE = PersistableEntity.create(cl, stamper, editedDep);
-			editedE.targetDir = editedTarget;
-			editedE.compiledCompilationUnit = compileE;
-			compileE.editedCompilationUnit = editedE;
-		}
-
-		E e = DoCompileMode.isDoCompile(mode) ? compileE : editedE;
+	final protected static <E extends CompilationUnit> E create(Class<E> cl, Stamper stamper, Mode<E> mode, Synthesizer syn, Map<RelativePath, Integer> sourceFiles, Path dep) throws IOException {
+		E e = PersistableEntity.tryReadElseCreate(cl, stamper, dep);
 		e.init();
+		e.mode = mode;
 		e.syn = syn;
 		if (syn != null)
 			syn.markSynthesized(e);
-		e.addSourceArtifacts(sourceFiles, editedSourceFiles);
+		e.addSourceArtifacts(sourceFiles);
 		
 		return e;
 	}
@@ -94,19 +76,28 @@ abstract public class CompilationUnit extends PersistableEntity {
 	 * Reads a CompilationUnit from memory or disk. The returned Compilation unit may or may not be consistent.
 	 */
 	@SuppressWarnings("unchecked")
-	final protected static <E extends CompilationUnit> E read(Class<E> cl, Stamper stamper, Path compileDep, Path editedDep, Mode mode) throws IOException {
-		E compileE = PersistableEntity.read(cl, stamper, compileDep);
-
-		E editedE;
-		if (compileE != null && compileE.editedCompilationUnit != null)
-			editedE = (E) compileE.editedCompilationUnit;
-		else
-			editedE = PersistableEntity.read(cl, stamper, editedDep);
-
-		if (DoCompileMode.isDoCompile(mode))
-		  return compileE; 
-		else
-		  return editedE;
+	final protected static <E extends CompilationUnit> E read(Class<E> cl, Stamper stamper, Mode<E> mode, Path... deps) throws IOException {
+	  Set<Path> seen = new HashSet<>();
+		for (Path dep : deps) {
+		  if (seen.contains(dep))
+		    continue;
+		  seen.add(dep);
+		  
+		  E e = PersistableEntity.read(cl, stamper, dep);
+			if (e == null)
+  		  continue;
+  		
+  		if (mode.canAccept(e))
+  		  return mode.accept(e);
+  		for (CompilationUnit m : e.mirrors) {
+  		  if (seen.contains(m.persistentPath))
+  		    continue;
+  		  seen.add(m.persistentPath);
+  		  if (mode.canAccept((E) m))
+  		    return mode.accept((E) m);
+  		}
+		}
+		return null;
 	}
 	
 	/**
@@ -115,106 +106,105 @@ abstract public class CompilationUnit extends PersistableEntity {
 	 * @return null if no consistent compilation unit is available.
 	 */
 	@SuppressWarnings("unchecked")
-  final protected static <E extends CompilationUnit> E readConsistent(Class<E> cl, Stamper stamper, Path compileDep, Path editedDep,
-      Map<RelativePath, Integer> editedSourceFiles, Mode mode) throws IOException {
-    E compileE = PersistableEntity.read(cl, stamper, compileDep);
-    if (compileE != null && compileE.isConsistent(editedSourceFiles, mode))
-      // valid compile is good for compilation and parsing
-      return compileE;
-
-    E editedE;
-    if (compileE != null && compileE.editedCompilationUnit != null)
-      editedE = (E) compileE.editedCompilationUnit;
-    else
-      editedE = PersistableEntity.read(cl, stamper, editedDep);
-
-    // valid edit is good for compilation after lifting
-    if (DoCompileMode.isDoCompile(mode) && editedE != null && editedE.isConsistent(editedSourceFiles, mode)) {
-      editedE.liftEditedToCompiled();
-      return (E) editedE.compiledCompilationUnit;
-    }
-
-    // valid edit is good for parsing
-    if (!DoCompileMode.isDoCompile(mode) && editedE != null && editedE.isConsistent(editedSourceFiles, mode))
-      return editedE;
-
+  final protected static <E extends CompilationUnit> E readConsistent(Class<E> cl, Stamper stamper, Mode<E> mode, Map<RelativePath, Integer> editedSourceFiles, Path... deps) throws IOException {
+	  Set<Path> seen = new HashSet<>();
+	  for (Path dep : deps) {
+	    if (seen.contains(dep))
+        continue;
+      seen.add(dep);
+      
+	    E e = PersistableEntity.read(cl, stamper, dep);
+      if (e == null)
+        continue;
+      
+      if (mode.canAccept(e) && e.isConsistent(editedSourceFiles, mode))
+        return mode.accept(e);
+      for (CompilationUnit m : e.mirrors) {
+        if (seen.contains(m.persistentPath))
+          continue;
+        seen.add(m.persistentPath);
+        if (mode.canAccept((E) m) && m.isConsistent(editedSourceFiles, mode))
+          return mode.accept((E) m);
+      }
+	  }
     return null;
   }
 
-	protected void copyContentTo(CompilationUnit compiled) {
-		compiled.sourceArtifacts.putAll(sourceArtifacts);
+//	protected void copyContentTo(CompilationUnit compiled, Mode<?> mode) {
+//		compiled.sourceArtifacts.putAll(sourceArtifacts);
+//
+//		for (Entry<CompilationUnit, Integer> entry : moduleDependencies.entrySet()) {
+//			CompilationUnit dep = entry.getKey();
+//			if (dep.compiledCompilationUnit == null)
+//				compiled.moduleDependencies.put(dep, entry.getValue());
+//			else
+//				compiled.addModuleDependency(dep.compiledCompilationUnit);
+//		}
+//
+//		for (Entry<CompilationUnit, Integer> entry : circularModuleDependencies.entrySet()) {
+//			CompilationUnit dep = entry.getKey();
+//			if (dep.compiledCompilationUnit == null)
+//				compiled.circularModuleDependencies.put(dep, entry.getValue());
+//			else
+//			  compiled.circularModuleDependencies.put(dep.compiledCompilationUnit, dep.compiledCompilationUnit.getInterfaceHash());
+//		}
+//
+//		for (Path p : externalFileDependencies.keySet())
+//			compiled.addExternalFileDependency(FileCommands.tryCopyFile(targetDir, compiled.targetDir, p));
+//
+//		for (Path p : generatedFiles.keySet())
+//			compiled.addGeneratedFile(FileCommands.tryCopyFile(targetDir, compiled.targetDir, p));
+//	}
 
-		for (Entry<CompilationUnit, Integer> entry : moduleDependencies.entrySet()) {
-			CompilationUnit dep = entry.getKey();
-			if (dep.compiledCompilationUnit == null)
-				compiled.moduleDependencies.put(dep, entry.getValue());
-			else
-				compiled.addModuleDependency(dep.compiledCompilationUnit);
-		}
-
-		for (Entry<CompilationUnit, Integer> entry : circularModuleDependencies.entrySet()) {
-			CompilationUnit dep = entry.getKey();
-			if (dep.compiledCompilationUnit == null)
-				compiled.circularModuleDependencies.put(dep, entry.getValue());
-			else
-			  compiled.circularModuleDependencies.put(dep.compiledCompilationUnit, dep.compiledCompilationUnit.getInterfaceHash());
-		}
-
-		for (Path p : externalFileDependencies.keySet())
-			compiled.addExternalFileDependency(FileCommands.tryCopyFile(targetDir, compiled.targetDir, p));
-
-		for (Path p : generatedFiles.keySet())
-			compiled.addGeneratedFile(FileCommands.tryCopyFile(targetDir, compiled.targetDir, p));
-	}
-
-	protected void liftEditedToCompiled() throws IOException {
-		ModuleVisitor<Void> liftVisitor = new ModuleVisitor<Void>() {
-			@Override
-			public Void visit(CompilationUnit mod, Mode mode) {
-				if (mod.compiledCompilationUnit == null)
-					return null;
-				// throw new IllegalStateException("compiledCompilationUnit of "
-				// + mod +
-				// " must not be null");
-
-				CompilationUnit edited = mod;
-				CompilationUnit compiled = mod.compiledCompilationUnit;
-				compiled.init();
-				edited.copyContentTo(compiled);
-
-				try {
-					compiled.write();
-				} catch (IOException e) {
-					throw new RuntimeException(e);
-				}
-
-				return null;
-			}
-
-			@Override
-			public Void combine(Void t1, Void t2) {
-				return null;
-			}
-
-			@Override
-			public Void init() {
-				return null;
-			}
-
-			@Override
-			public boolean cancel(Void t) {
-				return false;
-			}
-		};
-
-		if (editedCompilationUnit != null)
-			editedCompilationUnit.visit(liftVisitor);
-		else
-			this.visit(liftVisitor);
-	}
+//	protected void liftEditedToCompiled() throws IOException {
+//		ModuleVisitor<Void> liftVisitor = new ModuleVisitor<Void>() {
+//			@Override
+//			public Void visit(CompilationUnit mod, Mode mode) {
+//				if (mod.compiledCompilationUnit == null)
+//					return null;
+//				// throw new IllegalStateException("compiledCompilationUnit of "
+//				// + mod +
+//				// " must not be null");
+//
+//				CompilationUnit edited = mod;
+//				CompilationUnit compiled = mod.compiledCompilationUnit;
+//				compiled.init();
+//				edited.copyContentTo(compiled);
+//
+//				try {
+//					compiled.write();
+//				} catch (IOException e) {
+//					throw new RuntimeException(e);
+//				}
+//
+//				return null;
+//			}
+//
+//			@Override
+//			public Void combine(Void t1, Void t2) {
+//				return null;
+//			}
+//
+//			@Override
+//			public Void init() {
+//				return null;
+//			}
+//
+//			@Override
+//			public boolean cancel(Void t) {
+//				return false;
+//			}
+//		};
+//
+//		if (editedCompilationUnit != null)
+//			editedCompilationUnit.visit(liftVisitor);
+//		else
+//			this.visit(liftVisitor);
+//	}
 
 	@Override
 	protected void init() {
+	  mirrors = new ArrayList<>();
 		sourceArtifacts = new HashMap<>();
 		moduleDependencies = new HashMap<>();
 		circularModuleDependencies = new HashMap<>();
@@ -236,15 +226,9 @@ abstract public class CompilationUnit extends PersistableEntity {
 		sourceArtifacts.put(file, stampOfFile);
 	}
 	
-  protected void addSourceArtifacts(Set<RelativePath> sourceFiles, Map<RelativePath, Integer> editedSourceFiles) {
-    boolean hasEdits = editedSourceFiles != null;
-    for (RelativePath sourceFile : sourceFiles) {
-      Integer editedStamp = hasEdits ? editedSourceFiles.get(sourceFile) : null;
-      if (editedStamp != null)
-        addSourceArtifact(sourceFile, editedStamp);
-      else
-        addSourceArtifact(sourceFile);
-    }
+  protected void addSourceArtifacts(Map<RelativePath, Integer> sourceFiles) {
+    for (Entry<RelativePath, Integer> sourceFile : sourceFiles.entrySet())
+      addSourceArtifact(sourceFile.getKey(), sourceFile.getValue());
   }
 
 	public void addExternalFileDependency(Path file) {
@@ -358,10 +342,6 @@ abstract public class CompilationUnit extends PersistableEntity {
 	// Methods for querying dependencies
 	// *********************************
 
-	public boolean isParsedCompilationUnit() {
-		return compiledCompilationUnit != null;
-	}
-
 	public boolean dependsOnNoncircularly(CompilationUnit other) {
 		return getModuleDependencies().contains(other);
 	}
@@ -448,7 +428,11 @@ abstract public class CompilationUnit extends PersistableEntity {
 	// Methods for checking compilation consistency
 	// ********************************************
 
-	protected abstract boolean isConsistentExtend(Mode mode);
+	protected abstract boolean isConsistentExtend();
+	
+	public Mode<?> getMode() {
+	  return mode;
+	}
 	
 	public State getState() {
 	  return state;
@@ -474,7 +458,7 @@ abstract public class CompilationUnit extends PersistableEntity {
 		this.interfaceHash = hash;
 	}
 
-	protected boolean isConsistentWithSourceArtifacts(Map<RelativePath, Integer> editedSourceFiles, Mode mode) {
+	protected boolean isConsistentWithSourceArtifacts(Map<RelativePath, Integer> editedSourceFiles) {
 		if (sourceArtifacts.isEmpty())
 			return false;
 
@@ -491,11 +475,11 @@ abstract public class CompilationUnit extends PersistableEntity {
 		return true;
 	}
 
-	public boolean isConsistentShallow(Map<RelativePath, Integer> editedSourceFiles, Mode mode) {
+	public boolean isConsistentShallow(Map<RelativePath, Integer> editedSourceFiles) {
 		if (hasPersistentVersionChanged())
 			return false;
 
-		if (!isConsistentWithSourceArtifacts(editedSourceFiles, mode))
+		if (!isConsistentWithSourceArtifacts(editedSourceFiles))
 			return false;
 
 		for (Entry<Path, Integer> e : generatedFiles.entrySet()) {
@@ -510,7 +494,7 @@ abstract public class CompilationUnit extends PersistableEntity {
 			}
 		}
 
-		if (!isConsistentExtend(mode))
+		if (!isConsistentExtend())
 			return false;
 
 		return true;
@@ -539,11 +523,11 @@ abstract public class CompilationUnit extends PersistableEntity {
 		return true;
 	}
 
-	public boolean isConsistent(final Map<RelativePath, Integer> editedSourceFiles, Mode mode) {
+	public boolean isConsistent(final Map<RelativePath, Integer> editedSourceFiles, Mode<?> mode) {
 		ModuleVisitor<Boolean> isConsistentVisitor = new ModuleVisitor<Boolean>() {
 			@Override
-			public Boolean visit(CompilationUnit mod, Mode mode) {
-				return mod.isConsistentShallow(editedSourceFiles, mode);
+			public Boolean visit(CompilationUnit mod, Mode<?> mode) {
+				return mod.isConsistentShallow(editedSourceFiles);
 			}
 
 			@Override
@@ -569,7 +553,7 @@ abstract public class CompilationUnit extends PersistableEntity {
 	// *************************************
 
 	public static interface ModuleVisitor<T> {
-		public T visit(CompilationUnit mod, Mode mode);
+		public T visit(CompilationUnit mod, Mode<?> mode);
 
 		public T combine(T t1, T t2);
 
@@ -589,11 +573,11 @@ abstract public class CompilationUnit extends PersistableEntity {
 		return visit(visitor, null);
 	}
 
-	public <T> T visit(ModuleVisitor<T> visitor, Mode thisMode) {
+	public <T> T visit(ModuleVisitor<T> visitor, Mode<?> thisMode) {
 		return visit(visitor, thisMode, false);
 	}
 
-	public <T> T visit(ModuleVisitor<T> visitor, Mode thisMode, boolean reverseOrder) {
+	public <T> T visit(ModuleVisitor<T> visitor, Mode<?> thisMode, boolean reverseOrder) {
 		List<CompilationUnit> topologicalOrder = GraphUtils.sortTopologicalFrom(this);
 		if (reverseOrder) {
 			Collections.reverse(topologicalOrder);
@@ -604,7 +588,7 @@ abstract public class CompilationUnit extends PersistableEntity {
 		// Now iterate over the calculated list
 		T result = visitor.init();
 		for (CompilationUnit mod : topologicalOrder) {
-			Mode mode = thisMode;
+			Mode<?> mode = thisMode;
 			// Mode for required modules iff mod it not this and thismode not
 			// null
 			if (this != mod && mode != null) {
@@ -627,6 +611,8 @@ abstract public class CompilationUnit extends PersistableEntity {
 	@SuppressWarnings("unchecked")
 	protected void readEntity(ObjectInputStream in) throws IOException, ClassNotFoundException {
 	  state = (State) in.readObject();
+	  mirrors = (List<CompilationUnit>) in.readObject();
+	  mode = (Mode<?>) in.readObject();
 		targetDir = (Path) in.readObject();
 		sourceArtifacts = (Map<RelativePath, Integer>) in.readObject();
 		generatedFiles = (Map<Path, Integer>) in.readObject();
@@ -680,6 +666,8 @@ abstract public class CompilationUnit extends PersistableEntity {
 	@Override
 	protected void writeEntity(ObjectOutputStream out) throws IOException {
 	  out.writeObject(state);
+	  out.writeObject(mirrors);
+	  out.writeObject(mode);
 		out.writeObject(targetDir);
 		out.writeObject(sourceArtifacts = Collections.unmodifiableMap(sourceArtifacts));
 		out.writeObject(generatedFiles = Collections.unmodifiableMap(generatedFiles));

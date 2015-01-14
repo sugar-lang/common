@@ -4,7 +4,6 @@ import java.util.HashSet;
 import java.util.Set;
 
 import org.sugarj.common.cleardep.CompilationUnit.ModuleVisitor;
-import org.sugarj.common.cleardep.mode.Mode;
 import org.sugarj.util.Predicate;
 
 public class CompilationUnitUtils {
@@ -15,7 +14,7 @@ public class CompilationUnitUtils {
     ModuleVisitor<Void> visitor =new ModuleVisitor<Void>() {
 
       @Override
-      public Void visit(CompilationUnit mod, Mode mode) {
+      public Void visit(CompilationUnit mod, Mode<?> mode) {
         if (predicate.isFullfilled(mod)) {
           results.add(mod);
         }
@@ -43,23 +42,23 @@ public class CompilationUnitUtils {
     return results;
   }
 
-  public static Set<CompilationUnit> findUnitsWithChangedSourceFiles(CompilationUnit root, final Mode mode) {
+  public static Set<CompilationUnit> findUnitsWithChangedSourceFiles(CompilationUnit root) {
     return findUnitsWithMatch(new Predicate<CompilationUnit>() {
 
       @Override
       public boolean isFullfilled(CompilationUnit t) {
-        return !t.isPersisted() || !t.isConsistentWithSourceArtifacts(null, mode);
+        return !t.isPersisted() || !t.isConsistentWithSourceArtifacts(null);
       }
 
     }, root, false);
   }
   
-  public static Set<CompilationUnit> findInconsistentUnits(CompilationUnit root, final Mode mode) {
+  public static Set<CompilationUnit> findInconsistentUnits(CompilationUnit root) {
 	    return findUnitsWithMatch(new Predicate<CompilationUnit>() {
 
 	      @Override
 	      public boolean isFullfilled(CompilationUnit t) {
-	        return !t.isPersisted() || !t.isConsistentShallow(null, mode);
+	        return !t.isPersisted() || !t.isConsistentShallow(null);
 	      }
 
 	    }, root, false);

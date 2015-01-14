@@ -162,7 +162,7 @@ public class FileCommands {
   }
   
   public static String fileName(String file) {
-    int index = file.lastIndexOf(Environment.sep);
+    int index = file.lastIndexOf(File.separator);
 
     if (index >= 0)
       file = file.substring(index + 1);
@@ -201,7 +201,7 @@ public class FileCommands {
   @Deprecated
   public static String findFile(String filename, String... paths) {
     for (String path : paths) {
-      File f = new File(path + Environment.sep + filename);
+      File f = new File(path + File.separator + filename);
       if (f.exists())
         return f.getAbsolutePath();
     }
@@ -370,7 +370,7 @@ public class FileCommands {
   }
   
   public static String dropFilename(String file) {
-	  int i = file.lastIndexOf(Environment.sep);
+	  int i = file.lastIndexOf(File.separator);
 	  if (i > 0) 
 		  return file.substring(0,i);
 	  

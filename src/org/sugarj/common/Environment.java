@@ -1,21 +1,16 @@
 package org.sugarj.common;
 
 
-import java.io.File;
 import java.io.IOException;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.Map;
-import java.util.WeakHashMap;
 
-import org.spoofax.interpreter.terms.IStrategoTerm;
+import org.sugarj.common.cleardep.CompilationUnit;
+import org.sugarj.common.cleardep.Mode;
 import org.sugarj.common.cleardep.Stamper;
-import org.sugarj.common.cleardep.mode.DoCompileMode;
-import org.sugarj.common.cleardep.mode.ForEditorMode;
-import org.sugarj.common.cleardep.mode.Mode;
 import org.sugarj.common.path.AbsolutePath;
 import org.sugarj.common.path.Path;
 import org.sugarj.common.path.RelativePath;
@@ -30,12 +25,6 @@ public class Environment implements Serializable {
   
   private static final long serialVersionUID = -8403625415393122607L;
 
-  public static Map<Path, IStrategoTerm> terms = new WeakHashMap<Path, IStrategoTerm>();
-  
-  public static String sep = "/";
-  public static String classpathsep = File.pathSeparator;
-  
-  private boolean generateFiles;
   private boolean forEditor;
 
   private boolean terminateJVMAfterProcessing = true;
@@ -45,8 +34,11 @@ public class Environment implements Serializable {
   private Path root = new AbsolutePath(".");
   
   private Path compileBin = new AbsolutePath(".");
+  private Path bin = compileBin;
   
   private Stamper stamper; 
+  
+  private Mode<?> mode;
 
   /**
    * The directory in which to place files at parse time.
@@ -68,10 +60,8 @@ public class Environment implements Serializable {
   private List<Path> sourcePath = new LinkedList<Path>();
   private List<Path> includePath = new LinkedList<Path>();
   
-  public Environment(boolean generateFiles, Path stdlibDirPath, Stamper stamper) {
+  public Environment(Path stdlibDirPath, Stamper stamper) {
     this.stamper = stamper;
-    
-    includePath.add(compileBin);
     includePath.add(stdlibDirPath);
     
     try {
@@ -79,9 +69,6 @@ public class Environment implements Serializable {
     } catch (IOException e) {
       throw new RuntimeException(e);
     }
-    
-    if (!generateFiles)
-      includePath.add(parseBin);
   }
   
   public Path getRoot() {
@@ -105,17 +92,23 @@ public class Environment implements Serializable {
   }
 
   public Path getBin() {
-    return generateFiles ? compileBin : parseBin;
+    return bin;
+  }
+  
+  public void setBin(Path bin) {
+    this.bin = bin;
   }
 
-  public void setBin(Path bin) {
+  public void setCompileBin(Path newbin) {
     if (this.compileBin != null) {
       includePath.remove(this.compileBin);
-      includePath.add(bin);
+      includePath.add(newbin);
+      if (bin.equals(compileBin))
+        bin = newbin;
     }
-    this.compileBin = bin;
+    this.compileBin = newbin;
     try {
-      FileCommands.createDir(bin);
+      FileCommands.createDir(newbin);
     } catch (IOException e) {
       throw new RuntimeException(e);
     }
@@ -181,24 +174,8 @@ public class Environment implements Serializable {
     return new RelativePath(getBin(), relativePath);
   }
 
-  public boolean doGenerateFiles() {
-    return generateFiles;
-  }
-
   public boolean forEditor() {
     return forEditor;
-  }
-
-  public void setGenerateFiles(boolean b) {
-    if (this.generateFiles == b)
-      return;
-    
-    if (this.generateFiles)
-      includePath.add(parseBin);
-    else
-      includePath.add(compileBin);
-
-    this.generateFiles = b;
   }
 
   public boolean isTerminateJVMAfterProcessing() {
@@ -217,7 +194,12 @@ public class Environment implements Serializable {
     return stamper;
   }
   
-  public Mode getMode() {
-    return new ForEditorMode(new DoCompileMode(null, generateFiles), forEditor);
+  public void setMode(Mode<?> mode) {
+    this.mode = mode;
+  }
+  
+  @SuppressWarnings("unchecked")
+  public <E extends CompilationUnit> Mode<E> getMode() {
+    return (Mode<E>) mode;
   }
 }

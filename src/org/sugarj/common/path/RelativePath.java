@@ -5,8 +5,6 @@ import java.io.IOException;
 import java.io.ObjectInput;
 import java.io.ObjectOutput;
 
-import org.sugarj.common.Environment;
-
 /**
  * @author Sebastian Erdweg <seba at informatik uni-marburg de>
  */
@@ -48,7 +46,7 @@ public class RelativePath extends Path {
     if (getBasePath() == null)
       throw new IllegalStateException("Base of relative path is still open; cannot construct absolute path yet.");
       
-    return getBasePath() + Environment.sep + getRelativePath();
+    return getBasePath() + File.separator + getRelativePath();
   }
 
   @Override

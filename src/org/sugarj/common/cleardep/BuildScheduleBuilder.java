@@ -12,7 +12,6 @@ import java.util.Set;
 
 import org.sugarj.common.cleardep.BuildSchedule.ScheduleMode;
 import org.sugarj.common.cleardep.BuildSchedule.Task;
-import org.sugarj.common.cleardep.mode.Mode;
 import org.sugarj.common.path.RelativePath;
 
 public class BuildScheduleBuilder {
@@ -26,7 +25,7 @@ public class BuildScheduleBuilder {
   }
   
   private boolean needToCheckDependencies(CompilationUnit dep, Mode mode) {
-	  return  this.scheduleMode == ScheduleMode.REBUILD_ALL || !dep.isPersisted() || !dep.isConsistentShallow(null, mode) ;
+	  return  this.scheduleMode == ScheduleMode.REBUILD_ALL || !dep.isPersisted() || !dep.isConsistentShallow(null) ;
   }
 
   public void updateDependencies(DependencyExtractor extractor, Mode mode) {
@@ -35,7 +34,7 @@ public class BuildScheduleBuilder {
 	// Actually the units do not need to be consistent to e.g. generated files
 	Set<CompilationUnit> changedUnits = new HashSet<>();
 	for (CompilationUnit unit : this.unitsToCompile) {
-	      changedUnits.addAll(CompilationUnitUtils.findUnitsWithChangedSourceFiles(unit, mode));
+	      changedUnits.addAll(CompilationUnitUtils.findUnitsWithChangedSourceFiles(unit));
 	}
     
 
@@ -155,7 +154,7 @@ public class BuildScheduleBuilder {
       // Deep inconsistence will be calculated more efficiently
       Set<CompilationUnit> changedUnits = new HashSet<>();
       for (CompilationUnit unit : this.unitsToCompile) {
-         changedUnits.addAll(CompilationUnitUtils.findInconsistentUnits(unit, mode));
+         changedUnits.addAll(CompilationUnitUtils.findInconsistentUnits(unit));
       }
       // All tasks which changed units are inconsistent
       Set<Task> inconsistentTasks = new HashSet<>();

@@ -7,6 +7,8 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
+import java.util.WeakHashMap;
 
 import org.spoofax.interpreter.terms.IStrategoAppl;
 import org.spoofax.interpreter.terms.IStrategoConstructor;
@@ -44,6 +46,9 @@ import org.sugarj.common.path.Path;
  * @author Sebastian Erdweg <seba at informatik uni-marburg de>
  */
 public class ATermCommands {
+  
+  public static Map<Path, IStrategoTerm> terms = new WeakHashMap<Path, IStrategoTerm>();
+  
   
   public static class MatchError extends Error {
     private static final long serialVersionUID = -3329736288449173760L;
@@ -101,7 +106,8 @@ public class ATermCommands {
   public static ParseTableManager parseTableManager = new ParseTableManager(factoryForParser, false);
 
   public static IStrategoTerm atermFromFile(String filename) throws IOException {
-    IStrategoTerm term = Environment.terms.get(filename);
+    IStrategoTerm term;
+    synchronized(terms) { term = terms.get(filename); }
     
     if (term != null)
       return term;
@@ -122,9 +128,8 @@ public class ATermCommands {
     return file;
   }
   
-  public static void atermToFile(IStrategoTerm aterm, Path filename)
-      throws IOException {
-    Environment.terms.put(filename, aterm);
+  public static void atermToFile(IStrategoTerm aterm, Path filename) throws IOException {
+    synchronized(terms) { terms.put(filename, aterm); }
     FileCommands.writeToFile(filename, atermToString(aterm));
   }
   

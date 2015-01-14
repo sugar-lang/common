@@ -1,6 +1,7 @@
 package org.sugarj.common;
 
 import java.io.ByteArrayOutputStream;
+import java.io.File;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.ArrayList;
@@ -50,11 +51,11 @@ public class JavaCommands {
       cpBuilder.append(FileCommands.toWindowsPath(cp[i].getAbsolutePath()));
       
       if (i < cp.length - 1)
-        cpBuilder.append(Environment.classpathsep);
+        cpBuilder.append(File.pathSeparator);
     }
     
     if(cp.length > 0)
-      cpBuilder.append(Environment.classpathsep);
+      cpBuilder.append(File.pathSeparator);
     
     cpBuilder.append(dir);
     
@@ -147,10 +148,10 @@ public class JavaCommands {
   public static void java(Path dir, String main, Collection<String> paths, String... args) throws IOException {
     StringBuilder classpath = new StringBuilder();
     classpath.append(FileCommands.toWindowsPath(dir.getAbsolutePath()));
-    classpath.append(Environment.classpathsep);
+    classpath.append(File.pathSeparator);
     
     for (String path : paths)
-      classpath.append(path).append(Environment.classpathsep);
+      classpath.append(path).append(File.pathSeparator);
     
     String[] cmd = new String[args.length + 5];
     cmd[0] = "java";

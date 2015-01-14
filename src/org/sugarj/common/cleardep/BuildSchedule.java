@@ -6,7 +6,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
-import org.sugarj.common.cleardep.mode.Mode;
 import org.sugarj.common.path.RelativePath;
 
 public class BuildSchedule {
@@ -55,7 +54,7 @@ public class BuildSchedule {
     public boolean needsToBeBuild(Map<RelativePath, Integer> editedSourceFiles, Mode mode) {
       for (CompilationUnit u : this.unitsToCompile) {
         if (!u.isFinished() || 
-            !u.isConsistentShallow(editedSourceFiles, mode) || 
+            !u.isConsistentShallow(editedSourceFiles) || 
             !u.isConsistentToDependencyInterfaces()) {
           return true;
         }
