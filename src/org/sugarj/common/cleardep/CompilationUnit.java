@@ -94,8 +94,7 @@ abstract public class CompilationUnit extends PersistableEntity {
 	 * Reads a CompilationUnit from memory or disk. The returned Compilation unit may or may not be consistent.
 	 */
 	@SuppressWarnings("unchecked")
-	final protected static <E extends CompilationUnit> E read(Class<E> cl, Stamper stamper, Path compileDep, Path editedDep,
-			Map<RelativePath, Integer> editedSourceFiles, Mode mode) throws IOException {
+	final protected static <E extends CompilationUnit> E read(Class<E> cl, Stamper stamper, Path compileDep, Path editedDep, Mode mode) throws IOException {
 		E compileE = PersistableEntity.read(cl, stamper, compileDep);
 
 		E editedE;
