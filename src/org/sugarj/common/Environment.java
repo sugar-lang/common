@@ -146,8 +146,8 @@ public class Environment implements Serializable {
   public void setMode(TargettedMode<?> mode) {
     if (getBin() != null) {
       includePath.remove(getBin());
-      includePath.add(mode.getTargetDir());
     }
+    includePath.add(mode.getTargetDir());
     this.mode = mode;
   }
   
