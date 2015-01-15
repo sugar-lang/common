@@ -24,11 +24,11 @@ public class BuildScheduleBuilder {
     this.unitsToCompile = unitsToCompile;
   }
   
-  private boolean needToCheckDependencies(CompilationUnit dep, Mode mode) {
+  private boolean needToCheckDependencies(CompilationUnit dep) {
 	  return  this.scheduleMode == ScheduleMode.REBUILD_ALL || !dep.isPersisted() || !dep.isConsistentShallow(null) ;
   }
 
-  public void updateDependencies(DependencyExtractor extractor, Mode mode) {
+  public void updateDependencies(DependencyExtractor extractor) {
     // Find all dependencies which have changed
 	// We need only units with changed source files, then dependencies may have changed
 	// Actually the units do not need to be consistent to e.g. generated files
@@ -45,7 +45,7 @@ public class BuildScheduleBuilder {
     
     // Filter out root units which are consistent -> no need to check them
     for (CompilationUnit unit : this.unitsToCompile) {
-    	if (needToCheckDependencies(unit, mode)) {
+    	if (needToCheckDependencies(unit)) {
     	units.add(unit);
     	}
     }
@@ -66,7 +66,7 @@ public class BuildScheduleBuilder {
           changedUnit.addModuleDependency(dep);
           // Need to check dep iff rebuild all or if the unit is not persistent or inconsistent
           if (!visitedUnits.contains(dep)) {
-        	 if (this.needToCheckDependencies(dep, mode)) {
+        	 if (this.needToCheckDependencies(dep)) {
         		 units.add(dep);
             }
         	 // Add it always to visited units to avoid multiple consistency checks
@@ -113,7 +113,7 @@ public class BuildScheduleBuilder {
    *          the mode of the schedule as described
    * @return the created BuildSchedule
    */
-  public BuildSchedule createBuildSchedule(Map<RelativePath, Integer> editedSourceFiles, Mode mode) {
+  public BuildSchedule createBuildSchedule(Map<RelativePath, Integer> editedSourceFiles) {
     BuildSchedule schedule = new BuildSchedule();
 
     // Calculate strongly connected components: O(E+V)
