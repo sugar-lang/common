@@ -148,7 +148,7 @@ public abstract class PersistableEntity implements Serializable {
       
       entity.readEntity(in);
     } catch (IOException | ClassNotFoundException | IllegalArgumentException | IllegalAccessException | NoSuchFieldException | SecurityException e) {
-      Log.log.logErr("Could not read module's dependency file: " + p, Log.IMPORT);
+      Log.log.logErr("Could not read module's dependency file: " + p + ": " + e, Log.ALWAYS);
       inMemory.remove(entity.persistentPath);
       FileCommands.delete(entity.persistentPath);
       return null;

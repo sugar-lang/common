@@ -607,12 +607,14 @@ abstract public class CompilationUnit extends PersistableEntity {
 	// Methods for serialization
 	// *************************
 
+	/**
+	 *  Contributed state `mode` must be read by subclass.
+	 */
 	@Override
 	@SuppressWarnings("unchecked")
 	protected void readEntity(ObjectInputStream in) throws IOException, ClassNotFoundException {
 	  state = (State) in.readObject();
 	  mirrors = (List<CompilationUnit>) in.readObject();
-	  mode = (Mode<?>) in.readObject();
 		targetDir = (Path) in.readObject();
 		sourceArtifacts = (Map<RelativePath, Integer>) in.readObject();
 		generatedFiles = (Map<Path, Integer>) in.readObject();
@@ -663,12 +665,14 @@ abstract public class CompilationUnit extends PersistableEntity {
 		}
 	}
 
+	 /**
+   *  Contributed state `mode` must be written by subclass.
+   */
 	@Override
 	protected void writeEntity(ObjectOutputStream out) throws IOException {
 	  out.writeObject(state);
 	  out.writeObject(mirrors);
-	  out.writeObject(mode);
-		out.writeObject(targetDir);
+	  out.writeObject(targetDir);
 		out.writeObject(sourceArtifacts = Collections.unmodifiableMap(sourceArtifacts));
 		out.writeObject(generatedFiles = Collections.unmodifiableMap(generatedFiles));
 		out.writeObject(externalFileDependencies = Collections.unmodifiableMap(externalFileDependencies));

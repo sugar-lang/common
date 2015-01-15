@@ -218,6 +218,14 @@ public class FileCommands {
     
     return p;
   }
+  
+  public static Path tryNewTempDir() {
+    try {
+      return newTempDir();
+    } catch (IOException e) {
+      throw new RuntimeException(e);
+    }
+  }
 
   public static void prependToFile(Path file, String head) throws IOException {
     Path tmp = newTempFile("");

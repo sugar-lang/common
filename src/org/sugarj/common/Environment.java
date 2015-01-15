@@ -1,7 +1,6 @@
 package org.sugarj.common;
 
 
-import java.io.IOException;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -9,7 +8,6 @@ import java.util.LinkedList;
 import java.util.List;
 
 import org.sugarj.common.cleardep.CompilationUnit;
-import org.sugarj.common.cleardep.Mode;
 import org.sugarj.common.cleardep.Stamper;
 import org.sugarj.common.path.AbsolutePath;
 import org.sugarj.common.path.Path;
@@ -25,26 +23,16 @@ public class Environment implements Serializable {
   
   private static final long serialVersionUID = -8403625415393122607L;
 
-  private boolean forEditor;
-
   private boolean terminateJVMAfterProcessing = true;
   
   private Path cacheDir = null;
 
   private Path root = new AbsolutePath(".");
   
-  private Path compileBin = new AbsolutePath(".");
-  private Path bin = compileBin;
-  
   private Stamper stamper; 
   
-  private Mode<?> mode;
+  private TargettedMode<?> mode;
 
-  /**
-   * The directory in which to place files at parse time.
-   */
-  private final Path parseBin;
-  
   /* 
    * parse all imports simultaneously, i.e., not one after the other
    */
@@ -63,12 +51,6 @@ public class Environment implements Serializable {
   public Environment(Path stdlibDirPath, Stamper stamper) {
     this.stamper = stamper;
     includePath.add(stdlibDirPath);
-    
-    try {
-      this.parseBin = FileCommands.newTempDir();
-    } catch (IOException e) {
-      throw new RuntimeException(e);
-    }
   }
   
   public Path getRoot() {
@@ -92,42 +74,17 @@ public class Environment implements Serializable {
   }
 
   public Path getBin() {
-    return bin;
+    if (mode == null)
+      return null;
+    return mode.getTargetDir();
   }
   
-  public void setBin(Path bin) {
-    this.bin = bin;
-  }
-
-  public void setCompileBin(Path newbin) {
-    if (this.compileBin != null) {
-      includePath.remove(this.compileBin);
-      includePath.add(newbin);
-      if (bin.equals(compileBin))
-        bin = newbin;
-    }
-    this.compileBin = newbin;
-    try {
-      FileCommands.createDir(newbin);
-    } catch (IOException e) {
-      throw new RuntimeException(e);
-    }
-  }
-
   public Path getCacheDir() {
     return cacheDir;
   }
 
   public void setCacheDir(Path cacheDir) {
     this.cacheDir = cacheDir;
-  }
-
-  public Path getCompileBin() {
-    return compileBin;
-  }
-  
-  public Path getParseBin() {
-    return parseBin;
   }
 
   public boolean isAtomicImportParsing() {
@@ -174,10 +131,6 @@ public class Environment implements Serializable {
     return new RelativePath(getBin(), relativePath);
   }
 
-  public boolean forEditor() {
-    return forEditor;
-  }
-
   public boolean isTerminateJVMAfterProcessing() {
     return terminateJVMAfterProcessing;
   }
@@ -186,20 +139,20 @@ public class Environment implements Serializable {
     this.terminateJVMAfterProcessing = terminateJVMAfterProcessing;
   }
   
-  public void setForEditor(boolean forEditor) {
-    this.forEditor = forEditor;
-  }
-  
   public Stamper getStamper() {
     return stamper;
   }
   
-  public void setMode(Mode<?> mode) {
+  public void setMode(TargettedMode<?> mode) {
+    if (getBin() != null) {
+      includePath.remove(getBin());
+      includePath.add(mode.getTargetDir());
+    }
     this.mode = mode;
   }
   
   @SuppressWarnings("unchecked")
-  public <E extends CompilationUnit> Mode<E> getMode() {
-    return (Mode<E>) mode;
+  public <E extends CompilationUnit> TargettedMode<E> getMode() {
+    return (TargettedMode<E>) mode;
   }
 }
