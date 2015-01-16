@@ -121,46 +121,63 @@ public class GraphUtils {
    * @param root
    *          the root unit to start at
    * @return the sorted units in topological order, that means, a unit u1 before
-   *         a unit u2 in he list does not depend on u2 in the spanning DAG
+   *         a unit u2 in the list does not depend on u2 in the spanning DAG
    */
   public static List<CompilationUnit> sortTopologicalFrom(CompilationUnit root) {
-	LinkedList<CompilationUnit> sorting = new LinkedList<>();
+    LinkedList<CompilationUnit> sorting = new LinkedList<>();
 
+    Map<CompilationUnit, Boolean> visitedUnits = new HashMap<>();
     Deque<Pair<CompilationUnit, Integer>> stack = new ArrayDeque<>();
     stack.push(Pair.create(root, 1));
 
-    Set<CompilationUnit> visitedUnits = new HashSet<>();
-    visitedUnits.add(root);
-
+    final Boolean NEW = null;
+    final Boolean PENDING = Boolean.FALSE;
+    final Boolean SORTED = Boolean.TRUE;
     while (!stack.isEmpty()) {
-      Pair<CompilationUnit, Integer> p = stack.pop();
-      if (p.b == 1) {
+      Pair<CompilationUnit, Integer> p = stack.peek();
+      Boolean status = visitedUnits.get(p.a);
+      if (status == NEW) {
         // First visit of p.a
+        visitedUnits.put(p.a, PENDING);
         boolean depAdded = false;
-        for (CompilationUnit dep : p.a.getCircularAndNonCircularModuleDependencies()) {
-          if (!visitedUnits.contains(dep)) {
-            visitedUnits.add(dep);
+        for (CompilationUnit dep : p.a.getModuleDependencies()) {
+          Boolean depstatus = visitedUnits.get(dep);
+          if (depstatus == NEW) {
             stack.push(Pair.create(dep, 1));
             depAdded = true;
+          }
+          else if (depstatus == SORTED) {
+            // already sorted due to another dependency
+          }
+          else if (depstatus == PENDING) {
+            // cycle
+            System.out.println("cycle");
           }
         }
         // Shorten: If no dep was pushed on the stack, we can finish p.a right
         // now and do not need
         // to push it on the stack to pop it in the next iteration again
-        if (depAdded) {
-          p.b = 2;
-          stack.push(p);
-        } else {
-          sorting.addFirst(p.a);
+        if (!depAdded) {
+          sorting.add(p.a);
+          visitedUnits.put(p.a, SORTED);
+          stack.pop();
         }
-      } else {
-        // Second visit: no all dependencies have been visited, so append p.a to
-        // the list
-        sorting.addFirst(p.a);
+      }
+      else if (status == PENDING) {
+        // was waiting on stack until all its deps got sorted
+        sorting.add(p.a);
+        visitedUnits.put(p.a, SORTED);
+        stack.pop();
+      }
+      else if (status == SORTED) {
+        // already sorted due to another dependency on it
+        stack.pop();
       }
     }
 
-    assert validateTopolocialSorting(sorting) : "Topolocial sorting is not valid";
+    assert visitedUnits.size() == sorting.size();
+    assert sorting.containsAll(visitedUnits.keySet());
+    assert validateTopolocialSorting(sorting) : "Topolocial sorting is not valid " + visitedUnits;
     return sorting;
 
   }
@@ -216,7 +233,7 @@ public class GraphUtils {
     }
 
     Set<Set<CompilationUnit>> componentsSet = new HashSet<>(components.values());
-    assert validateConnectedComponents(componentsSet, units) : "Connected components wrong";
+    assert validateConnectedComponents(componentsSet, units) : "Connected components wrong " + componentsSet;
     return componentsSet;
   }
 

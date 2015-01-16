@@ -260,14 +260,7 @@ abstract public class CompilationUnit extends PersistableEntity {
 		generatedFiles.put(file, stampOfFile);
 	}
 
-	/**
-	 * @deprecated use {{@link #addModuleDependency(CompilationUnit)} instead
-	 */
-	@Deprecated
 	public void addCircularModuleDependency(CompilationUnit mod) {
-		if (!mod.dependsOnTransitivelyNoncircularly(this)) {
-			throw new AssertionError("Circular depedency from " + this + " to " + mod + " does not close a circle");
-		}
 		circularModuleDependencies.put(mod, mod.getInterfaceHash());
 	}
 

@@ -147,7 +147,7 @@ public abstract class PersistableEntity implements Serializable {
       }
       
       entity.readEntity(in);
-    } catch (IOException | ClassNotFoundException | IllegalArgumentException | IllegalAccessException | NoSuchFieldException | SecurityException e) {
+    } catch (Throwable e) {
       Log.log.logErr("Could not read module's dependency file: " + p + ": " + e, Log.ALWAYS);
       inMemory.remove(entity.persistentPath);
       FileCommands.delete(entity.persistentPath);
@@ -196,9 +196,7 @@ public abstract class PersistableEntity implements Serializable {
   }
   
   public String toString() {
-    if (persistentPath != null)
-      return super.toString() + " at " + persistentPath;
-    return super.toString();
+    return getClass().getSimpleName() + "(" + persistentPath + ")";
   }
   
   public String getName() {
