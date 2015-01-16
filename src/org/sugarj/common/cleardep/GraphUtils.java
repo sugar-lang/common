@@ -151,7 +151,6 @@ public class GraphUtils {
           }
           else if (depstatus == PENDING) {
             // cycle
-            System.out.println("cycle");
           }
         }
         // Shorten: If no dep was pushed on the stack, we can finish p.a right
