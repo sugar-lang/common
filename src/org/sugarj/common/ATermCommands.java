@@ -243,12 +243,16 @@ public class ATermCommands {
   public static IStrategoTerm makeAppl(String cons, String sort, int arity, IToken emptyArgsToken, IStrategoTerm... args) {
     assert emptyArgsToken != null || args.length > 0;
     
+    IStrategoTerm[] newargs = new IStrategoTerm[args.length];
+    for (int i = 0; i < args.length; i++)
+      newargs[i] = args[i] == TermFactory.EMPTY_LIST ? makeList("List", emptyArgsToken) : args[i];
+    
     IStrategoTerm appl =
       factory.makeAppl(
              factory.makeConstructor(cons, arity),
              args);
     
-    setAttachment(appl, sort, emptyArgsToken, args);
+    setAttachment(appl, sort, emptyArgsToken, newargs);
     
     return appl;
   }
