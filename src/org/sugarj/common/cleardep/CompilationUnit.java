@@ -45,7 +45,6 @@ abstract public class CompilationUnit extends PersistableEntity {
 	protected Synthesizer syn;
 
 	protected Integer interfaceHash;
-	protected Path targetDir;
 	// Need to declare as HashMap, because HashMap allows null values, general
 	// Map does not guarantee an keys with null value would be lost
 	// But HashMap is incompatible with unmodified maps which are stored in
@@ -60,7 +59,7 @@ abstract public class CompilationUnit extends PersistableEntity {
 	// Methods for initialization
 	// **************************
 
-	final protected static <E extends CompilationUnit> E create(Class<E> cl, Stamper stamper, Mode<E> mode, Synthesizer syn, Map<RelativePath, Integer> sourceFiles, Path dep) throws IOException {
+	protected static <E extends CompilationUnit> E create(Class<E> cl, Stamper stamper, Mode<E> mode, Synthesizer syn, Map<RelativePath, Integer> sourceFiles, Path dep) throws IOException {
 		E e = PersistableEntity.tryReadElseCreate(cl, stamper, dep);
 		e.init();
 		e.mode = mode;
@@ -76,7 +75,7 @@ abstract public class CompilationUnit extends PersistableEntity {
 	 * Reads a CompilationUnit from memory or disk. The returned Compilation unit may or may not be consistent.
 	 */
 	@SuppressWarnings("unchecked")
-	final protected static <E extends CompilationUnit> E read(Class<E> cl, Stamper stamper, Mode<E> mode, Path... deps) throws IOException {
+	protected static <E extends CompilationUnit> E read(Class<E> cl, Stamper stamper, Mode<E> mode, Path... deps) throws IOException {
 	  Set<Path> seen = new HashSet<>();
 		for (Path dep : deps) {
 		  if (seen.contains(dep))
@@ -106,7 +105,7 @@ abstract public class CompilationUnit extends PersistableEntity {
 	 * @return null if no consistent compilation unit is available.
 	 */
 	@SuppressWarnings("unchecked")
-  final protected static <E extends CompilationUnit> E readConsistent(Class<E> cl, Stamper stamper, Mode<E> mode, Map<RelativePath, Integer> editedSourceFiles, Path... deps) throws IOException {
+  protected static <E extends CompilationUnit> E readConsistent(Class<E> cl, Stamper stamper, Mode<E> mode, Map<RelativePath, Integer> editedSourceFiles, Path... deps) throws IOException {
 	  Set<Path> seen = new HashSet<>();
 	  for (Path dep : deps) {
 	    if (seen.contains(dep))
@@ -471,6 +470,9 @@ abstract public class CompilationUnit extends PersistableEntity {
 	public boolean isConsistentShallow(Map<RelativePath, Integer> editedSourceFiles) {
 		if (hasPersistentVersionChanged())
 			return false;
+		
+		if (!isFinished())
+      return false;
 
 		if (!isConsistentWithSourceArtifacts(editedSourceFiles))
 			return false;
@@ -608,7 +610,6 @@ abstract public class CompilationUnit extends PersistableEntity {
 	protected void readEntity(ObjectInputStream in) throws IOException, ClassNotFoundException {
 	  state = (State) in.readObject();
 	  mirrors = (List<CompilationUnit>) in.readObject();
-		targetDir = (Path) in.readObject();
 		sourceArtifacts = (Map<RelativePath, Integer>) in.readObject();
 		generatedFiles = (Map<Path, Integer>) in.readObject();
 		externalFileDependencies = (Map<Path, Integer>) in.readObject();
@@ -665,7 +666,6 @@ abstract public class CompilationUnit extends PersistableEntity {
 	protected void writeEntity(ObjectOutputStream out) throws IOException {
 	  out.writeObject(state);
 	  out.writeObject(mirrors);
-	  out.writeObject(targetDir);
 		out.writeObject(sourceArtifacts = Collections.unmodifiableMap(sourceArtifacts));
 		out.writeObject(generatedFiles = Collections.unmodifiableMap(generatedFiles));
 		out.writeObject(externalFileDependencies = Collections.unmodifiableMap(externalFileDependencies));
