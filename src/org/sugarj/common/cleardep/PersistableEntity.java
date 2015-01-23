@@ -46,7 +46,7 @@ public abstract class PersistableEntity implements Serializable {
   public boolean hasPersistentVersionChanged() {
     return isPersisted &&
            persistentPath != null && 
-           persistentStamp.equals(stamper.stampOf(persistentPath));
+           !persistentStamp.equals(stamper.stampOf(persistentPath));
   }
   
   final protected void setPersisted() throws IOException {
