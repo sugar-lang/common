@@ -12,7 +12,8 @@ public class SimpleStamp<T> implements Stamp {
   
   @Override
   public boolean equals(Stamp o) {
-    return value == null && o == null || value.equals(o);
+    return value == null && o == null || 
+           (o instanceof SimpleStamp<?>) && value.equals(((SimpleStamp<?>) o).value);
   }
 
 }
