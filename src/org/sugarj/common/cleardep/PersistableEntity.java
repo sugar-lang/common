@@ -36,7 +36,7 @@ public abstract class PersistableEntity implements Serializable {
    * Path and stamp of the disk-stored version of this result.
    */
   protected Path persistentPath;
-  private int persistentStamp = -1;
+  private Stamp persistentStamp = null;
   private boolean isPersisted = false;
 
   final public boolean isPersisted() {
@@ -46,7 +46,7 @@ public abstract class PersistableEntity implements Serializable {
   public boolean hasPersistentVersionChanged() {
     return isPersisted &&
            persistentPath != null && 
-           persistentStamp != stamper.stampOf(persistentPath);
+           persistentStamp.equals(stamper.stampOf(persistentPath));
   }
   
   final protected void setPersisted() throws IOException {
@@ -54,7 +54,7 @@ public abstract class PersistableEntity implements Serializable {
     isPersisted = true;
   }
   
-  final public int stamp() {
+  final public Stamp stamp() {
     if (!isPersisted())
       throw new RuntimeException("Cannot extract stamp from non-persisted module");
     return persistentStamp;

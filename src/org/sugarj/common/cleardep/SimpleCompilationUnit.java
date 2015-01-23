@@ -28,7 +28,7 @@ public class SimpleCompilationUnit extends CompilationUnit {
     mode = (Mode<?>) ois.readObject();
   }
 
-  public static SimpleCompilationUnit create(Stamper stamper, SimpleMode mode, Synthesizer syn, Map<RelativePath, Integer> sourceFiles, Path dep) throws IOException {
+  public static SimpleCompilationUnit create(Stamper stamper, SimpleMode mode, Synthesizer syn, Map<RelativePath, Stamp> sourceFiles, Path dep) throws IOException {
     return CompilationUnit.create(SimpleCompilationUnit.class, stamper, mode, syn, sourceFiles, dep);
   }
   
@@ -36,7 +36,7 @@ public class SimpleCompilationUnit extends CompilationUnit {
     return CompilationUnit.read(SimpleCompilationUnit.class, stamper, mode, deps);
   }
   
-  public static SimpleCompilationUnit readConsistent(Stamper stamper, SimpleMode mode, Map<RelativePath, Integer> editedSourceFiles, Path... deps) throws IOException {
+  public static SimpleCompilationUnit readConsistent(Stamper stamper, SimpleMode mode, Map<RelativePath, Stamp> editedSourceFiles, Path... deps) throws IOException {
     return CompilationUnit.readConsistent(SimpleCompilationUnit.class, stamper, mode, editedSourceFiles, deps);
   }
 }
