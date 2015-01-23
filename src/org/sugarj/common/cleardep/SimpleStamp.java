@@ -1,6 +1,6 @@
 package org.sugarj.common.cleardep;
 
-public class SimpleStamp<T> implements Stamp {
+abstract public class SimpleStamp<T> implements Stamp {
 
   public static final long serialVersionUID = 100393450148269674L;
 

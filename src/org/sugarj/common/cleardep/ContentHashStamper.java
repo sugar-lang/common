@@ -42,5 +42,10 @@ public class ContentHashStamper implements Stamper {
     public boolean equals(Stamp o) {
       return o instanceof ContentHashStamp && super.equals(o);
     }
+
+    @Override
+    public Stamper getStamper() {
+      return ContentHashStamper.instance;
+    }
   }
 }

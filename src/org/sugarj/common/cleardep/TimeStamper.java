@@ -35,5 +35,10 @@ public class TimeStamper implements Stamper {
     public boolean equals(Stamp o) {
       return o instanceof TimeStamp && super.equals(o);
     }
+
+    @Override
+    public Stamper getStamper() {
+      return TimeStamper.instance;
+    }
   }
 }
