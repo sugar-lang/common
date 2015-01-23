@@ -43,7 +43,8 @@ abstract public class CompilationUnit extends PersistableEntity {
 	protected Mode<?> mode;
 
 	protected Synthesizer syn;
-
+	protected Stamper defaultStamper;
+	
 	protected Stamp interfaceHash;
 	// Need to declare as HashMap, because HashMap allows null values, general
 	// Map does not guarantee an keys with null value would be lost
@@ -62,6 +63,7 @@ abstract public class CompilationUnit extends PersistableEntity {
 	protected static <E extends CompilationUnit> E create(Class<E> cl, Stamper stamper, Mode<E> mode, Synthesizer syn, Map<RelativePath, Stamp> sourceFiles, Path dep) throws IOException {
 		E e = PersistableEntity.tryReadElseCreate(cl, stamper, dep);
 		e.init();
+		e.defaultStamper = stamper;
 		e.mode = mode;
 		e.syn = syn;
 		if (syn != null)
@@ -218,7 +220,7 @@ abstract public class CompilationUnit extends PersistableEntity {
 	// *******************************
 
 	protected void addSourceArtifact(RelativePath file) {
-		addSourceArtifact(file, stamper.stampOf(file));
+		addSourceArtifact(file, defaultStamper.stampOf(file));
 	}
 
 	protected void addSourceArtifact(RelativePath file, Stamp stampOfFile) {
@@ -231,7 +233,7 @@ abstract public class CompilationUnit extends PersistableEntity {
   }
 
 	public void addExternalFileDependency(Path file) {
-		addExternalFileDependency(file, stamper.stampOf(file));
+		addExternalFileDependency(file, defaultStamper.stampOf(file));
 	}
 
 	public void addExternalFileDependency(Path file, Stamp stampOfFile) {
@@ -239,7 +241,7 @@ abstract public class CompilationUnit extends PersistableEntity {
 	}
 
 	public void addExternalFileDependencyLate(Path file) {
-		addExternalFileDependencyLate(file, stamper.stampOf(file));
+		addExternalFileDependencyLate(file, defaultStamper.stampOf(file));
 	}
 
 	public void addExternalFileDependencyLate(Path file, Stamp stampOfFile) {
@@ -252,7 +254,7 @@ abstract public class CompilationUnit extends PersistableEntity {
 	}
 
 	public void addGeneratedFile(Path file) {
-		addGeneratedFile(file, stamper.stampOf(file));
+		addGeneratedFile(file, defaultStamper.stampOf(file));
 	}
 
 	public void addGeneratedFile(Path file, Stamp stampOfFile) {
@@ -456,10 +458,10 @@ abstract public class CompilationUnit extends PersistableEntity {
 
 		boolean hasEdits = editedSourceFiles != null;
 		for (Entry<RelativePath, Stamp> e : sourceArtifacts.entrySet()) {
-		  Stamp stamp = hasEdits ? editedSourceFiles.get(e.getKey()) : null;
-			if (stamp != null && !stamp.equals(e.getValue())) {
+		  Stamp editStamp = hasEdits ? editedSourceFiles.get(e.getKey()) : null;
+			if (editStamp != null && !editStamp.equals(e.getValue())) {
 				return false;
-			} else if (stamp == null && !stamper.stampOf(e.getKey()).equals(e.getValue())) {
+			} else if (editStamp == null && !SimpleStamp.equalStamp(e.getValue(), e.getKey())) {
 				return false;
 			}
 		}
@@ -478,13 +480,13 @@ abstract public class CompilationUnit extends PersistableEntity {
 			return false;
 
 		for (Entry<Path, Stamp> e : generatedFiles.entrySet()) {
-			if (!stamper.stampOf(e.getKey()).equals(e.getValue())) {
+			if (!SimpleStamp.equalStamp(e.getValue(), e.getKey())) {
 				return false;
 			}
 		}
 
 		for (Entry<? extends Path, Stamp> e : externalFileDependencies.entrySet()) {
-			if (!stamper.stampOf(e.getKey()).equals(e.getValue())) {
+			if (!SimpleStamp.equalStamp(e.getValue(), e.getKey())) {
 				return false;
 			}
 		}
@@ -607,7 +609,7 @@ abstract public class CompilationUnit extends PersistableEntity {
 	 */
 	@Override
 	@SuppressWarnings("unchecked")
-	protected void readEntity(ObjectInputStream in) throws IOException, ClassNotFoundException {
+	protected void readEntity(ObjectInputStream in, Stamper stamper) throws IOException, ClassNotFoundException {
 	  state = (State) in.readObject();
 	  mirrors = (List<CompilationUnit>) in.readObject();
 		sourceArtifacts = (Map<RelativePath, Stamp>) in.readObject();

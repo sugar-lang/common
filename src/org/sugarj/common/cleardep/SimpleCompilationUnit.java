@@ -23,8 +23,8 @@ public class SimpleCompilationUnit extends CompilationUnit {
   }
   
   @Override
-  protected void readEntity(ObjectInputStream ois) throws IOException, ClassNotFoundException {
-    super.readEntity(ois);
+  protected void readEntity(ObjectInputStream ois, Stamper stamper) throws IOException, ClassNotFoundException {
+    super.readEntity(ois, stamper);
     mode = (Mode<?>) ois.readObject();
   }
 
