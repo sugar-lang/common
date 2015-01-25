@@ -660,6 +660,10 @@ abstract public class CompilationUnit extends PersistableEntity {
 			syn = new Synthesizer(modules, files);
 		}
 	}
+	
+	public void write() throws IOException {
+    super.write(defaultStamper);
+  }
 
 	 /**
    *  Contributed state `mode` must be written by subclass.
