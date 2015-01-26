@@ -7,8 +7,8 @@ import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
 
-import org.sugarj.common.cleardep.CompilationUnit;
-import org.sugarj.common.cleardep.Stamper;
+import org.sugarj.cleardep.CompilationUnit;
+import org.sugarj.cleardep.stamp.Stamper;
 import org.sugarj.common.path.AbsolutePath;
 import org.sugarj.common.path.Path;
 import org.sugarj.common.path.RelativePath;
