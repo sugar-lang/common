@@ -10,6 +10,8 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
+import org.sugarj.common.path.Path;
+
 
 /**
  * Provides methods for calling external commands. Includes input
@@ -127,9 +129,13 @@ public class CommandExecution {
    * @throws IOException
    *         when something goes wrong
    */
-  public String[][] execute(String... cmds) {
-    return executeWithPrefix(cmds[0], cmds);
+  public String[][] execute(Path dir, String... cmds) {
+    return executeWithPrefix(cmds[0], dir, cmds);
   }
+  public String[][] execute(String... cmds) {
+    return executeWithPrefix(cmds[0], null, cmds);
+  }
+  
 
   /**
    * Executes the given command.
@@ -147,6 +153,9 @@ public class CommandExecution {
    *         when something goes wrong
    */
   public String[][] executeWithPrefix(String prefix, String... cmds) {
+    return executeWithPrefix(prefix, null, cmds);
+  }
+  public String[][] executeWithPrefix(String prefix, Path dir, String... cmds) {
     int exitValue;
     
     StreamLogger errStreamLogger = null;
@@ -158,7 +167,7 @@ public class CommandExecution {
 //        log.beginExecution(prefix, cmds);
 //      }
 
-      Process p = rt.exec(cmds);
+      Process p = rt.exec(cmds, null, dir == null ? null : dir.getFile());
 
       errStreamLogger = new StreamLogger(p.getErrorStream(), "");
       outStreamLogger = new StreamLogger(p.getInputStream(), "");
