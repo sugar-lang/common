@@ -12,8 +12,7 @@ Require-Bundle: org.eclipse.ui,
  org.spoofax.interpreter.core,
  org.strategoxt.jarprovider,
  org.strategoxt.strj,
- org.spoofax.interpreter.externaldeps,
- org.sugarj.cleardep
+ org.spoofax.interpreter.externaldeps
 Bundle-ActivationPolicy: lazy
 Bundle-RequiredExecutionEnvironment: JavaSE-1.7
 Export-Package: org.sugarj.common,
