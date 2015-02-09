@@ -399,6 +399,18 @@ public class FileCommands {
   public static RelativePath replaceExtension(RelativePath p, String newExtension) {
     return new RelativePath(p.getBasePath(), dropExtension(p.getRelativePath()) + "." + newExtension);
   }
+  
+  public static RelativePath addExtension(RelativePath p, String newExtension) {
+    return new RelativePath(p.getBasePath(), p.getRelativePath() + "." + newExtension);
+  }
+  
+  public static AbsolutePath replaceExtension(AbsolutePath p, String newExtension) {
+    return new AbsolutePath(dropExtension(p.getAbsolutePath()) + "." + newExtension);
+  }
+  
+  public static AbsolutePath addExtension(AbsolutePath p, String newExtension) {
+    return new AbsolutePath(p.getAbsolutePath() + "." + newExtension);
+  }
 
   public static RelativePath dropFilename(RelativePath file) {
     return new RelativePath(file.getBasePath(), dropFilename(file.getRelativePath()));
