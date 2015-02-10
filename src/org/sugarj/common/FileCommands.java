@@ -2,6 +2,7 @@ package org.sugarj.common;
 
 import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileFilter;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.FileReader;
@@ -12,6 +13,7 @@ import java.io.OutputStream;
 import java.net.URI;
 import java.net.URL;
 import java.nio.file.Files;
+import java.util.ArrayList;
 import java.util.List;
 
 import org.sugarj.common.path.AbsolutePath;
@@ -185,11 +187,33 @@ public class FileCommands {
   }
   
   public static RelativePath[] listFiles(Path p) {
-    File[] files = p.getFile().listFiles();
+    return listFiles(p, null);
+  }
+  
+  public static RelativePath[] listFiles(Path p, FileFilter filter) {
+    File[] files = p.getFile().listFiles(filter);
     RelativePath[] paths = new RelativePath[files.length];
     
     for (int i = 0; i < files.length; i++)
       paths[i] = new RelativePath(p, files[i].getName());
+    
+    return paths;
+  }
+  
+  public static List<RelativePath> listFilesRecursive(Path p) {
+    return listFilesRecursive(p, null);
+  }
+  
+  public static List<RelativePath> listFilesRecursive(Path p, FileFilter filter) {
+    File[] files = p.getFile().listFiles(filter);
+    List<RelativePath> paths = new ArrayList<>();
+    
+    for (int i = 0; i < files.length; i++) {
+      RelativePath rel = new RelativePath(p, files[i].getName());
+      paths.add(rel);
+      if (rel.getFile().isDirectory())
+        paths.addAll(listFilesRecursive(rel, filter));
+    }
     
     return paths;
   }
