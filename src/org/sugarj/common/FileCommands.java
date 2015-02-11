@@ -14,6 +14,7 @@ import java.net.URI;
 import java.net.URL;
 import java.nio.file.Files;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 import org.sugarj.common.path.AbsolutePath;
@@ -204,14 +205,18 @@ public class FileCommands {
     return listFilesRecursive(p, null);
   }
   
-  public static List<RelativePath> listFilesRecursive(Path p, FileFilter filter) {
-    File[] files = p.getFile().listFiles(filter);
+  public static List<RelativePath> listFilesRecursive(Path p, final FileFilter filter) {
+    File[] files = p.getFile().listFiles();
+    if (files == null)
+      return Collections.emptyList();
+    
     List<RelativePath> paths = new ArrayList<>();
     
     for (int i = 0; i < files.length; i++) {
       RelativePath rel = new RelativePath(p, files[i].getName());
-      paths.add(rel);
-      if (rel.getFile().isDirectory())
+      if (filter.accept(files[i]))
+        paths.add(rel);
+      if (files[i].isDirectory())
         paths.addAll(listFilesRecursive(rel, filter));
     }
     
