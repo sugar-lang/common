@@ -138,6 +138,19 @@ public class Log {
     err.println(text);
   }
   
+  public synchronized void logErr(String text, Exception e, int msglevel) {
+    if (silent >= 0)
+      return;
+    
+    if ((loglevel & msglevel) == 0)
+      return;
+    
+    noLongerLeaf();
+    indent();
+    err.println(text);
+    e.printStackTrace(err);
+  }
+  
   private void noLongerLeaf() {
     if (!lightweight.empty() && lightweight.peek()) {
       lightweight.pop();
