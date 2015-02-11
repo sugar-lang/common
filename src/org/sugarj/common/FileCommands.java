@@ -13,6 +13,7 @@ import java.io.OutputStream;
 import java.net.URI;
 import java.net.URL;
 import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -81,12 +82,7 @@ public class FileCommands {
   }
 
   public static void copyFile(Path from, Path to) throws IOException {
-    FileInputStream fis = new FileInputStream(from.getFile());
-    createFile(to);
-    FileOutputStream fos = new FileOutputStream(to.getFile());
-    copyFile(fis, fos);
-    fis.close();
-    fos.close();
+    Files.copy(from.getFile().toPath(), to.getFile().toPath(), StandardCopyOption.REPLACE_EXISTING);
   }
   
   public static void copyFile(InputStream in, OutputStream out) throws IOException {
@@ -505,20 +501,20 @@ public class FileCommands {
     return null;
   }
   
-  public static Path tryCopyFile(Path from, Path to, Path file) {
+  public static Path copyFile(Path from, Path to, Path file) {
     RelativePath p = getRelativePath(from, file);
-    if (p != null) {
-      Path target = new RelativePath(to, p.getRelativePath());
-      if (!FileCommands.exists(p))
-        return target;
-      try {
-        copyFile(p, target);
-        return target;
-      } catch (IOException e) {
-        e.printStackTrace();
-        return target;
-      }
+    if (p == null)
+      return null;
+    
+    RelativePath target = new RelativePath(to, p.getRelativePath());
+    if (!FileCommands.exists(p))
+      return target;
+    try {
+      copyFile(p, target);
+      return target;
+    } catch (IOException e) {
+      e.printStackTrace();
+      return target;
     }
-    return file;
   }
 }

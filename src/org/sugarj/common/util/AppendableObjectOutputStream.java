@@ -1,4 +1,4 @@
-package org.sugarj.util;
+package org.sugarj.common.util;
 
 import java.io.IOException;
 import java.io.ObjectOutputStream;

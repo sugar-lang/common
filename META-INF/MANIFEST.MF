@@ -18,4 +18,4 @@ Bundle-RequiredExecutionEnvironment: JavaSE-1.7
 Export-Package: org.sugarj.common,
  org.sugarj.common.errors,
  org.sugarj.common.path,
- org.sugarj.util
+ org.sugarj.common.util

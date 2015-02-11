@@ -7,7 +7,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-import org.sugarj.util.Pair;
+import org.sugarj.common.util.Pair;
 
 /**
  * @author Sebastian Erdweg

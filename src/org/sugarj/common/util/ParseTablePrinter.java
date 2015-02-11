@@ -1,4 +1,4 @@
-package org.sugarj.util;
+package org.sugarj.common.util;
 
 import java.io.BufferedWriter;
 import java.io.FileWriter;

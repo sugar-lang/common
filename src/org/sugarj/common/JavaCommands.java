@@ -15,7 +15,7 @@ import org.sugarj.common.errors.SourceLocation;
 import org.sugarj.common.path.AbsolutePath;
 import org.sugarj.common.path.Path;
 import org.sugarj.common.path.RelativePath;
-import org.sugarj.util.Pair;
+import org.sugarj.common.util.Pair;
 
 /**
  * 

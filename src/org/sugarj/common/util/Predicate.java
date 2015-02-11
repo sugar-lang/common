@@ -1,4 +1,4 @@
-package org.sugarj.util;
+package org.sugarj.common.util;
 
 public interface Predicate<T> {
   
