@@ -12,11 +12,14 @@ import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.net.URI;
 import java.net.URL;
+import java.nio.file.CopyOption;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import org.sugarj.common.path.AbsolutePath;
 import org.sugarj.common.path.Path;
@@ -81,8 +84,13 @@ public class FileCommands {
     file.getFile().delete();
   }
 
-  public static void copyFile(Path from, Path to) throws IOException {
-    Files.copy(from.getFile().toPath(), to.getFile().toPath(), StandardCopyOption.REPLACE_EXISTING);
+  public static void copyFile(Path from, Path to, CopyOption... options) throws IOException {
+    Set<CopyOption> optSet = new HashSet<>();
+    for (CopyOption o : options)
+      optSet.add(o);
+    optSet.add(StandardCopyOption.REPLACE_EXISTING);
+    
+    Files.copy(from.getFile().toPath(), to.getFile().toPath(), optSet.toArray(new CopyOption[optSet.size()]));
   }
   
   public static void copyFile(InputStream in, OutputStream out) throws IOException {
@@ -501,7 +509,7 @@ public class FileCommands {
     return null;
   }
   
-  public static Path copyFile(Path from, Path to, Path file) {
+  public static Path copyFile(Path from, Path to, Path file, CopyOption... options) {
     RelativePath p = getRelativePath(from, file);
     if (p == null)
       return null;
@@ -510,7 +518,7 @@ public class FileCommands {
     if (!FileCommands.exists(p))
       return target;
     try {
-      copyFile(p, target);
+      copyFile(p, target, options);
       return target;
     } catch (IOException e) {
       e.printStackTrace();

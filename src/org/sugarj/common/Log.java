@@ -85,10 +85,10 @@ public class Log {
     if (lightweight.pop()) {
       out.println(" ... " + error + " - " + duration + "ms");
     } else if (doneMessage) {
-      log.log(shortText + " " + error + " - " + duration + "ms", Log.ALWAYS);
+      log.log(shortText + " ... " + error + " - " + duration + "ms", Log.ALWAYS);
     }
     else 
-      log.log(shortText + " " + error + " - " + duration + "ms", Log.ALWAYS);
+      log.log(shortText + " ... " + error + " - " + duration + "ms", Log.ALWAYS);
   }
   
   public void endTask() {
