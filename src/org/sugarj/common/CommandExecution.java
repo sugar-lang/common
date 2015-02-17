@@ -7,8 +7,11 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
 import org.sugarj.common.path.Path;
 
@@ -21,6 +24,8 @@ import org.sugarj.common.path.Path;
  */
 public class CommandExecution {
 
+  private static ExecutorService ioThreadPool = Executors.newCachedThreadPool();
+  
   /**
    * silences the main process
    */
@@ -81,19 +86,19 @@ public class CommandExecution {
    * /javaworld/jw-12-2000/jw-1229-traps.html to understand why
    * we need this.
    */
-  private class StreamLogger extends Thread {
+  private class StreamRunner implements Callable<List<String>> {
     private final InputStream in;
     private String prefix;
 
     private List<String> msg = new ArrayList<String>();
     
-    public StreamLogger(InputStream in, String prefix) {
+    public StreamRunner(InputStream in, String prefix) {
       this.in = in;
       this.prefix = prefix;
     }
 
     @Override
-    public void run() {
+    public List<String> call() {
       try {
         BufferedReader reader = new BufferedReader(new InputStreamReader(in));
         String line = null;
@@ -105,10 +110,7 @@ public class CommandExecution {
       } catch (IOException ioe) {
         ioe.printStackTrace();
       }
-    }
-    
-    public String[] getMsg() {
-      return msg.toArray(new String[] {});
+      return msg;
     }
   }
 
@@ -158,8 +160,8 @@ public class CommandExecution {
   public String[][] executeWithPrefix(String prefix, Path dir, String... cmds) {
     int exitValue;
     
-    StreamLogger errStreamLogger = null;
-    StreamLogger outStreamLogger = null;
+    StreamRunner errStreamLogger = null;
+    StreamRunner outStreamLogger = null;
     try {
       Runtime rt = Runtime.getRuntime();
 
@@ -169,32 +171,31 @@ public class CommandExecution {
 
       Process p = rt.exec(cmds, null, dir == null ? null : dir.getFile());
 
-      errStreamLogger = new StreamLogger(p.getErrorStream(), "");
-      outStreamLogger = new StreamLogger(p.getInputStream(), "");
+      errStreamLogger = new StreamRunner(p.getErrorStream(), "");
+      outStreamLogger = new StreamRunner(p.getInputStream(), "");
 
       // We need to start these threads even if we don't care for
       // the output, because the process will block if we don't
       // read from the streams
 
-      errStreamLogger.start();
-      outStreamLogger.start();
+      Future<List<String>> outFuture = ioThreadPool.submit(outStreamLogger);
+      Future<List<String>> errFuture = ioThreadPool.submit(errStreamLogger);
 
       // Wait for the process to finish
       exitValue = p.waitFor();
-      errStreamLogger.join();
-      outStreamLogger.join();
+      List<String> outMsgs = outFuture.get();
+      List<String> errMsgs = errFuture.get();
 
-//      log.endExecution(exitValue, errStreamLogger.getUnloggedMsg());
+      if (exitValue != 0) {
+        String detail = errMsgs + ", " + outMsgs;
+        throw new ExecutionError("problems while executing: " + detail, cmds);
+      }
+      
+      return new String[][]{outMsgs.toArray(new String[outMsgs.size()]), errMsgs.toArray(new String[errMsgs.size()])};
     } catch (Throwable t) {
       throw new ExecutionError("problems while executing " + prefix + ": "
           + t.getMessage(), cmds, t);
     }
     
-    if (exitValue != 0) {
-      String detail = Arrays.toString(errStreamLogger.getMsg()) + ", " + Arrays.toString(outStreamLogger.getMsg());
-      throw new ExecutionError("problems while executing: " + detail, cmds);
-    }
-    
-    return new String[][]{outStreamLogger.getMsg(), errStreamLogger.getMsg()};
   }
 }
