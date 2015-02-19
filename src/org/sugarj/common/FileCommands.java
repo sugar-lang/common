@@ -525,4 +525,10 @@ public class FileCommands {
       return target;
     }
   }
+  
+  public static String tryGetRelativePath(Path p) {
+    if (p instanceof RelativePath)
+      return ((RelativePath) p).getRelativePath();
+    return p.getAbsolutePath();
+  }
 }
