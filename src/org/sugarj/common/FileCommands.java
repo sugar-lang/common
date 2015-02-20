@@ -218,7 +218,7 @@ public class FileCommands {
     
     for (int i = 0; i < files.length; i++) {
       RelativePath rel = new RelativePath(p, files[i].getName());
-      if (filter.accept(files[i]))
+      if (filter == null || filter.accept(files[i]))
         paths.add(rel);
       if (files[i].isDirectory())
         paths.addAll(listFilesRecursive(rel, filter));
@@ -433,12 +433,10 @@ public class FileCommands {
     return new RelativePath(p.getBasePath(), dropExtension(p.getRelativePath()) + "." + newExtension);
   }
   
-  public static RelativePath addExtension(RelativePath p, String newExtension) {
-    return new RelativePath(p.getBasePath(), p.getRelativePath() + "." + newExtension);
-  }
-  
-  public static AbsolutePath replaceExtension(AbsolutePath p, String newExtension) {
-    return new AbsolutePath(dropExtension(p.getAbsolutePath()) + "." + newExtension);
+  public static Path addExtension(Path p, String newExtension) {
+    if (p instanceof RelativePath)
+      return new RelativePath(((RelativePath) p).getBasePath(), ((RelativePath) p).getRelativePath() + "." + newExtension);
+    return new AbsolutePath(p.getAbsolutePath() + "." + newExtension);
   }
   
   public static AbsolutePath addExtension(AbsolutePath p, String newExtension) {
