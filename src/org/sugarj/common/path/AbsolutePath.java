@@ -5,6 +5,8 @@ import java.io.IOException;
 import java.io.ObjectInput;
 import java.io.ObjectOutput;
 
+import org.sugarj.common.FileCommands;
+
 
 /**
  * @author Sebastian Erdweg <seba at informatik uni-marburg de>
@@ -55,5 +57,10 @@ public class AbsolutePath extends Path {
     path = (String) in.readObject();
     if (!acceptable(path))
       throw new IllegalArgumentException("AbsolutePath constructed on unacceptable argument: " + path);
+  }
+
+  @Override
+  public AbsolutePath replaceExtension(String newExt) {
+    return new AbsolutePath(FileCommands.dropExtension(getAbsolutePath()) + "." + newExt);
   }
 }

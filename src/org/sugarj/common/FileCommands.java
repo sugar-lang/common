@@ -42,45 +42,43 @@ public class FileCommands {
       throw new RuntimeException(e);
     }
   }
-  
+
   /**
    * 
-   * @param suffix without dot "."
+   * @param suffix
+   *          without dot "."
    * @return
    * @throws IOException
    */
   public static Path newTempFile(String suffix) throws IOException {
-    File f =
-        File.createTempFile(
-            "sugarj",
-            suffix == null || suffix.isEmpty() ? suffix : "." + suffix);
+    File f = File.createTempFile("sugarj", suffix == null || suffix.isEmpty() ? suffix : "." + suffix);
     final Path p = new AbsolutePath(f.getAbsolutePath());
-    
+
     return p;
   }
 
   public static void deleteTempFiles(Path file) throws IOException {
     if (file == null)
       return;
-    
+
     String parent = file.getFile().getParent();
-    
+
     if (parent == null)
       return;
     else if (parent.equals(TMP_DIR))
       delete(file);
-    else 
+    else
       deleteTempFiles(new AbsolutePath(parent));
   }
-  
+
   public static void delete(Path file) throws IOException {
     if (file == null)
       return;
-    
+
     if (file.getFile().listFiles() != null)
       for (File f : file.getFile().listFiles())
         FileCommands.delete(new AbsolutePath(f.getPath()));
-    
+
     file.getFile().delete();
   }
 
@@ -89,10 +87,10 @@ public class FileCommands {
     for (CopyOption o : options)
       optSet.add(o);
     optSet.add(StandardCopyOption.REPLACE_EXISTING);
-    
+
     Files.copy(from.getFile().toPath(), to.getFile().toPath(), optSet.toArray(new CopyOption[optSet.size()]));
   }
-  
+
   public static void copyFile(InputStream in, OutputStream out) throws IOException {
     int len;
     byte[] b = new byte[1024];
@@ -102,24 +100,22 @@ public class FileCommands {
   }
 
   /**
-   * Beware: one must not rename SDF files since the filename and
-   * the module name needs to coincide. Instead generate a new
-   * file which imports the other SDF file.
+   * Beware: one must not rename SDF files since the filename and the module
+   * name needs to coincide. Instead generate a new file which imports the other
+   * SDF file.
    * 
    * @param file
    * @param content
    * @throws IOException
    */
-  public static void writeToFile(Path file, String content)
-      throws IOException {
+  public static void writeToFile(Path file, String content) throws IOException {
     FileCommands.createFile(file);
     FileOutputStream fos = new FileOutputStream(file.getFile());
     fos.write(content.getBytes());
     fos.close();
   }
 
-  public static void appendToFile(Path file, String content)
-      throws IOException {
+  public static void appendToFile(Path file, String content) throws IOException {
     createFile(file);
     FileOutputStream fos = new FileOutputStream(file.getFile(), true);
     fos.write(content.getBytes());
@@ -129,15 +125,15 @@ public class FileCommands {
   public static byte[] readFileAsByteArray(Path file) throws IOException {
     return readFileAsByteArray(file.getFile());
   }
+
   public static byte[] readFileAsByteArray(File file) throws IOException {
     return Files.readAllBytes(file.toPath());
   }
-  
+
   public static String readFileAsString(File file) throws IOException {
     return readFileAsString(new AbsolutePath(file.getAbsolutePath()));
   }
-  
-  
+
   // from http://snippets.dzone.com/posts/show/1335
   // Author: http://snippets.dzone.com/user/daph2001
   public static String readFileAsString(Path filePath) throws IOException {
@@ -163,20 +159,19 @@ public class FileCommands {
     reader.close();
     return fileData.toString();
   }
-  
+
   public static String fileName(URL url) {
     return fileName(new AbsolutePath(url.getPath()));
   }
-  
-  
+
   public static String fileName(URI uri) {
     return fileName(new AbsolutePath(uri.getPath()));
   }
-  
+
   public static String fileName(Path file_doof) {
-	  return fileName(toCygwinPath(file_doof.getAbsolutePath()));
+    return fileName(toCygwinPath(file_doof.getAbsolutePath()));
   }
-  
+
   public static String fileName(String file) {
     int index = file.lastIndexOf(File.separator);
 
@@ -190,32 +185,32 @@ public class FileCommands {
 
     return file;
   }
-  
+
   public static RelativePath[] listFiles(Path p) {
     return listFiles(p, null);
   }
-  
+
   public static RelativePath[] listFiles(Path p, FileFilter filter) {
     File[] files = p.getFile().listFiles(filter);
     RelativePath[] paths = new RelativePath[files.length];
-    
+
     for (int i = 0; i < files.length; i++)
       paths[i] = new RelativePath(p, files[i].getName());
-    
+
     return paths;
   }
-  
+
   public static List<RelativePath> listFilesRecursive(Path p) {
     return listFilesRecursive(p, null);
   }
-  
+
   public static List<RelativePath> listFilesRecursive(Path p, final FileFilter filter) {
     File[] files = p.getFile().listFiles();
     if (files == null)
       return Collections.emptyList();
-    
+
     List<RelativePath> paths = new ArrayList<>();
-    
+
     for (int i = 0; i < files.length; i++) {
       RelativePath rel = new RelativePath(p, files[i].getName());
       if (filter == null || filter.accept(files[i]))
@@ -223,7 +218,7 @@ public class FileCommands {
       if (files[i].isDirectory())
         paths.addAll(listFilesRecursive(rel, filter));
     }
-    
+
     return paths;
   }
 
@@ -231,9 +226,9 @@ public class FileCommands {
    * Finds the given file in the given list of paths.
    * 
    * @param filename
-   *        relative filename.
+   *          relative filename.
    * @param paths
-   *        list of possible paths to filename
+   *          list of possible paths to filename
    * @return full file path to filename or null
    */
   @Deprecated
@@ -245,9 +240,9 @@ public class FileCommands {
    * Finds the given file in the given list of paths.
    * 
    * @param filename
-   *        relative filename.
+   *          relative filename.
    * @param paths
-   *        list of possible paths to filename
+   *          list of possible paths to filename
    * @return full file path to filename or null
    */
   @Deprecated
@@ -267,10 +262,10 @@ public class FileCommands {
     f.delete();
     f.mkdir();
     final Path p = new AbsolutePath(f.getAbsolutePath());
-    
+
     return p;
   }
-  
+
   public static Path tryNewTempDir() {
     try {
       return newTempDir();
@@ -386,7 +381,7 @@ public class FileCommands {
   public static boolean exists(Path file) {
     return file != null && file.getFile().exists();
   }
-  
+
   public static boolean exists(URI file) {
     return new File(file).exists();
   }
@@ -406,39 +401,42 @@ public class FileCommands {
   public static String getExtension(File infile) {
     return getExtension(infile.getName());
   }
-  
+
   public static String getExtension(String infile) {
     int i = infile.lastIndexOf('.');
-    
+
     if (i > 0)
-      return infile.substring(i+1, infile.length());
-    
+      return infile.substring(i + 1, infile.length());
+
     return null;
   }
-  
+
   public static String dropExtension(String file) {
     int i = file.lastIndexOf('.');
-    
+
     if (i > 0)
       return file.substring(0, i);
-    
+
     return file;
   }
-  
+
   public static String dropDirectory(Path p) {
     return fileName(p) + "." + getExtension(p);
   }
-  
-  public static RelativePath replaceExtension(RelativePath p, String newExtension) {
-    return new RelativePath(p.getBasePath(), dropExtension(p.getRelativePath()) + "." + newExtension);
+
+  public static AbsolutePath replaceExtension(AbsolutePath p, String newExtension) {
+    return p.replaceExtension(newExtension);
   }
-  
+  public static RelativePath replaceExtension(RelativePath p, String newExtension) {
+    return p.replaceExtension(newExtension);
+  }
+
   public static Path addExtension(Path p, String newExtension) {
     if (p instanceof RelativePath)
       return new RelativePath(((RelativePath) p).getBasePath(), ((RelativePath) p).getRelativePath() + "." + newExtension);
     return new AbsolutePath(p.getAbsolutePath() + "." + newExtension);
   }
-  
+
   public static AbsolutePath addExtension(AbsolutePath p, String newExtension) {
     return new AbsolutePath(p.getAbsolutePath() + "." + newExtension);
   }
@@ -446,22 +444,22 @@ public class FileCommands {
   public static RelativePath dropFilename(RelativePath file) {
     return new RelativePath(file.getBasePath(), dropFilename(file.getRelativePath()));
   }
-  
+
   public static String dropFilename(String file) {
-	  int i = file.lastIndexOf(File.separator);
-	  if (i > 0) 
-		  return file.substring(0,i);
-	  
-	  return "";
+    int i = file.lastIndexOf(File.separator);
+    if (i > 0)
+      return file.substring(0, i);
+
+    return "";
   }
 
   public static int fileHash(Path file) throws IOException {
     if (exists(file))
       return readFileAsString(file).hashCode();
-    
+
     return 0;
   }
-  
+
   public static int tryFileHash(Path file) {
     int hash;
     try {
@@ -475,7 +473,7 @@ public class FileCommands {
 
   public static boolean isEmptyFile(Path prog) throws IOException {
     FileInputStream in = null;
-    
+
     try {
       in = new FileInputStream(prog.getFile());
       if (in.read() == -1)
@@ -490,28 +488,28 @@ public class FileCommands {
   // cai 27.09.12
   // convert path-separator to that of the OS
   // so that strategoXT doesn't prepend ./ to C:/foo/bar/baz.
-  public static String nativePath(String path){
-      return path.replace('/', File.separatorChar);
+  public static String nativePath(String path) {
+    return path.replace('/', File.separatorChar);
   }
-  
+
   public static RelativePath getRelativePath(Path base, Path fullPath) {
     if (fullPath instanceof RelativePath && ((RelativePath) fullPath).getBasePath().equals(base))
       return (RelativePath) fullPath;
-    
+
     String baseS = base.getAbsolutePath();
     String fullS = fullPath.getAbsolutePath();
-    
+
     if (fullS.startsWith(baseS))
       return new RelativePath(base, fullS.substring(baseS.length()));
-    
+
     return null;
   }
-  
+
   public static Path copyFile(Path from, Path to, Path file, CopyOption... options) {
     RelativePath p = getRelativePath(from, file);
     if (p == null)
       return null;
-    
+
     RelativePath target = new RelativePath(to, p.getRelativePath());
     if (!FileCommands.exists(p))
       return target;
@@ -523,7 +521,7 @@ public class FileCommands {
       return target;
     }
   }
-  
+
   public static String tryGetRelativePath(Path p) {
     if (p instanceof RelativePath)
       return ((RelativePath) p).getRelativePath();

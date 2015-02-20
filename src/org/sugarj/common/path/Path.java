@@ -26,6 +26,8 @@ public abstract class Path implements Externalizable {
     return o instanceof Path && ((Path) o).getAbsolutePath().equals(getAbsolutePath());
   }
 
+  public abstract Path replaceExtension(String newExt);
+  
   protected String trimFront(String path) {
     while (path.startsWith(File.separator))
       path = path.substring(1, path.length());
