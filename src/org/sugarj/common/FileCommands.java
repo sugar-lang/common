@@ -221,7 +221,8 @@ public class FileCommands {
       if (filter == null || filter.accept(files[i]))
         paths.add(rel);
       if (files[i].isDirectory())
-        paths.addAll(listFilesRecursive(rel, filter));
+        for (Path sub : listFilesRecursive(rel, filter))
+          paths.add(getRelativePath(rel, sub));
     }
     
     return paths;
