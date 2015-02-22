@@ -5,6 +5,8 @@ import java.io.IOException;
 import java.io.ObjectInput;
 import java.io.ObjectOutput;
 
+import org.sugarj.common.FileCommands;
+
 /**
  * @author Sebastian Erdweg <seba at informatik uni-marburg de>
  */
@@ -66,5 +68,10 @@ public class RelativePath extends Path {
     if (base == null)
       return relativePath;
     return getAbsolutePath();
+  }
+
+  @Override
+  public RelativePath replaceExtension(String newExt) {
+    return new RelativePath(getBasePath(), FileCommands.dropExtension(this.getRelativePath()) + "." + newExt);
   }
 }
