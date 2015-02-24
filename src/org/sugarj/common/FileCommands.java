@@ -1,11 +1,13 @@
 package org.sugarj.common;
 
 import java.io.BufferedReader;
+import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileFilter;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.FileReader;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -114,6 +116,17 @@ public class FileCommands {
     fos.write(content.getBytes());
     fos.close();
   }
+  
+  public static void writeLinesFile(Path file, List<String> lines) throws IOException {
+    FileCommands.createFile(file);
+    BufferedWriter writer = new BufferedWriter(new FileWriter(file.getFile()));
+    for (String line : lines) {
+      writer.write(line);
+      writer.write("\n");
+    }
+    writer.flush();
+    writer.close();
+  }
 
   public static void appendToFile(Path file, String content) throws IOException {
     createFile(file);
@@ -146,6 +159,17 @@ public class FileCommands {
 
     reader.close();
     return fileData.toString();
+  }
+  
+  public static List<String> readFileLines(Path filePath) throws IOException {
+    BufferedReader reader = new BufferedReader(new FileReader(filePath.getFile()));
+    List<String> lines = new ArrayList<>();
+    String temp;
+    while((temp = reader.readLine()) != null) {
+      lines.add(temp);
+    }
+    reader.close();
+    return lines;
   }
 
   public static String readStreamAsString(InputStream in) throws IOException {
