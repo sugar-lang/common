@@ -55,19 +55,33 @@ public class CommandExecution {
   public static class ExecutionError extends Error {
     private static final long serialVersionUID = -4924660269220590175L;
     private final String[] cmds;
+    private final String[] outMsgs;
+    private final String[] errMsgs;
 
-    public ExecutionError(String message, String[] cmds) {
+    public ExecutionError(String message, String[] cmds, String[] outMsgs, String[] errMsgs) {
       super(message + ": " + log.commandLineAsString(cmds));
       this.cmds = cmds;
+      this.outMsgs = outMsgs;
+      this.errMsgs = errMsgs;
     }
     
-    public ExecutionError(String message, String[] cmds, Throwable cause) {
+    public ExecutionError(String message, String[] cmds, String[] outMsgs, String[] errMsgs, Throwable cause) {
       super(message + ": " + log.commandLineAsString(cmds), cause);
       this.cmds = cmds;
+      this.outMsgs = outMsgs;
+      this.errMsgs = errMsgs;
     }
 
     public String[] getCmds() {
       return cmds;
+    }
+
+    public String[] getOutMsgs() {
+      return outMsgs;
+    }
+
+    public String[] getErrMsgs() {
+      return errMsgs;
     }
   }
   
@@ -110,6 +124,10 @@ public class CommandExecution {
       } catch (IOException ioe) {
         ioe.printStackTrace();
       }
+      return msg;
+    }
+    
+    public synchronized List<String> peek() {
       return msg;
     }
   }
@@ -187,14 +205,15 @@ public class CommandExecution {
       List<String> errMsgs = errFuture.get();
 
       if (exitValue != 0) {
-        String detail = errMsgs + ", " + outMsgs;
-        throw new ExecutionError("problems while executing: " + detail, cmds);
+        throw new ExecutionError("problems while executing " + cmds[0], cmds, outMsgs.toArray(new String[outMsgs.size()]), errMsgs.toArray(new String[errMsgs.size()]));
       }
       
       return new String[][]{outMsgs.toArray(new String[outMsgs.size()]), errMsgs.toArray(new String[errMsgs.size()])};
     } catch (Throwable t) {
-      throw new ExecutionError("problems while executing " + prefix + ": "
-          + t.getMessage(), cmds, t);
+      List<String> outMsgs = outStreamLogger.peek();
+      List<String> errMsgs = errStreamLogger.peek();
+
+      throw new ExecutionError("problems while executing " + prefix + ": " + t.getMessage(), cmds, outMsgs.toArray(new String[outMsgs.size()]), errMsgs.toArray(new String[errMsgs.size()]), t);
     }
     
   }
