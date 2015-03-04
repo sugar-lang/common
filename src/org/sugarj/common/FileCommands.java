@@ -17,6 +17,8 @@ import java.net.URL;
 import java.nio.file.CopyOption;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
@@ -478,22 +480,33 @@ public class FileCommands {
     return "";
   }
 
-  public static int fileHash(Path file) throws IOException {
-    if (exists(file))
-      return readFileAsString(file).hashCode();
-
-    return 0;
+  public static byte[] fileHash(Path file) throws IOException {
+    // http://www.codejava.net/coding/how-to-calculate-md5-and-sha-hash-values-in-java
+    try (FileInputStream inputStream = new FileInputStream(file.getFile())) {
+        MessageDigest digest = MessageDigest.getInstance("SHA-1");
+        
+        byte[] bytesBuffer = new byte[1024];
+        int bytesRead = -1;
+ 
+        while ((bytesRead = inputStream.read(bytesBuffer)) != -1) {
+            digest.update(bytesBuffer, 0, bytesRead);
+        }
+ 
+        byte[] hashedBytes = digest.digest();
+ 
+        return hashedBytes;
+    } catch (NoSuchAlgorithmException | IOException ex) {
+        return null;
+    }
   }
 
-  public static int tryFileHash(Path file) {
-    int hash;
+  public static byte[] tryFileHash(Path file) {
     try {
-      hash = FileCommands.fileHash(file);
+      return FileCommands.fileHash(file);
     } catch (IOException e) {
       e.printStackTrace();
-      hash = -1;
+      return null;
     }
-    return hash;
   }
 
   public static boolean isEmptyFile(Path prog) throws IOException {

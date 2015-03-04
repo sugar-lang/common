@@ -205,10 +205,12 @@ public class CommandExecution {
       List<String> errMsgs = errFuture.get();
 
       if (exitValue != 0) {
-        throw new ExecutionError("problems while executing " + cmds[0], cmds, outMsgs.toArray(new String[outMsgs.size()]), errMsgs.toArray(new String[errMsgs.size()]));
+        throw new ExecutionError("Command failed", cmds, outMsgs.toArray(new String[outMsgs.size()]), errMsgs.toArray(new String[errMsgs.size()]));
       }
       
       return new String[][]{outMsgs.toArray(new String[outMsgs.size()]), errMsgs.toArray(new String[errMsgs.size()])};
+    } catch (ExecutionError e) {
+      throw e; 
     } catch (Throwable t) {
       List<String> outMsgs = outStreamLogger.peek();
       List<String> errMsgs = errStreamLogger.peek();

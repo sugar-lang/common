@@ -1,6 +1,7 @@
 package org.sugarj.common.util;
 
 import java.io.Serializable;
+import java.util.Objects;
 
 public class Pair<A, B> implements Serializable {
   private static final long serialVersionUID = 2566823463317111600L;
@@ -19,5 +20,19 @@ public class Pair<A, B> implements Serializable {
   
   public String toString() {
     return "(" + (a == null ? "null" : a.toString()) + ", " + (b == null ? "null" : b.toString()) + ")";
+  }
+  
+  @Override
+  public int hashCode() {
+    return Objects.hash(a, b);
+  }
+  
+  @Override
+  public boolean equals(Object o) {
+    if (o instanceof Pair) {
+      Pair<?,?> p = (Pair<?,?>) o;
+      return Objects.equals(a, p.a) && Objects.equals(b, p.b);
+    }
+    return false;
   }
 }
