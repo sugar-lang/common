@@ -212,8 +212,8 @@ public class CommandExecution {
     } catch (ExecutionError e) {
       throw e; 
     } catch (Throwable t) {
-      List<String> outMsgs = outStreamLogger.peek();
-      List<String> errMsgs = errStreamLogger.peek();
+      List<String> outMsgs = outStreamLogger == null ? new ArrayList<String>() : outStreamLogger.peek();
+      List<String> errMsgs = errStreamLogger == null ? new ArrayList<String>() : errStreamLogger.peek();
 
       throw new ExecutionError("problems while executing " + prefix + ": " + t.getMessage(), cmds, outMsgs.toArray(new String[outMsgs.size()]), errMsgs.toArray(new String[errMsgs.size()]), t);
     }
