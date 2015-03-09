@@ -22,6 +22,7 @@ import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 
@@ -122,9 +123,12 @@ public class FileCommands {
   public static void writeLinesFile(Path file, List<String> lines) throws IOException {
     FileCommands.createFile(file);
     BufferedWriter writer = new BufferedWriter(new FileWriter(file.getFile()));
-    for (String line : lines) {
-      writer.write(line);
+    Iterator<String> iter = lines.iterator();
+    while(iter.hasNext()) {
+      writer.write(iter.next());
+      if (iter.hasNext()) {
       writer.write("\n");
+      }
     }
     writer.flush();
     writer.close();
