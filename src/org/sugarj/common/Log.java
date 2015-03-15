@@ -3,7 +3,7 @@ package org.sugarj.common;
 import java.io.PrintStream;
 import java.util.Stack;
 
-import org.sugarj.common.CommandExecution;
+import org.sugarj.common.Exec;
 
 public class Log {
   /**
@@ -160,8 +160,8 @@ public class Log {
   }
 
   public void beginExecution(String prefix, int level, String... cmds) {
-    if (CommandExecution.FULL_COMMAND_LINE) {
-      if (CommandExecution.WRAP_COMMAND_LINE) {
+    if (Exec.FULL_COMMAND_LINE) {
+      if (Exec.WRAP_COMMAND_LINE) {
         beginTask("execute " + prefix, level);
         
         logCommandLine(cmds, level);
@@ -173,7 +173,7 @@ public class Log {
           builder.append(' ').append(cmd);
         beginTask("execute " + prefix, builder.toString(), false, level);
       }
-    } else if (!CommandExecution.SUB_SILENT_EXECUTION) {
+    } else if (!Exec.SUB_SILENT_EXECUTION) {
       beginTask("execute " + prefix, level);
     } else {
       beginInlineTask("execute " + prefix, level);

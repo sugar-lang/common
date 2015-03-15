@@ -6,6 +6,7 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Callable;
@@ -22,7 +23,7 @@ import org.sugarj.common.path.Path;
  * 
  * @author Sebastian Erdweg <seba at informatik uni-marburg de>
  */
-public class CommandExecution {
+public class Exec {
 
   private static ExecutorService ioThreadPool = Executors.newCachedThreadPool();
   
@@ -51,12 +52,22 @@ public class CommandExecution {
    */
   public static boolean CACHE_INFO = true;
 
-
+  public static class ExecutionResult implements Serializable {
+    private static final long serialVersionUID = 3298797085346937563L;
+    
+    public final String[] outMsgs;
+    public final String[] errMsgs;
+    public ExecutionResult(String[] outMsgs, String[] errMsgs) {
+      this.outMsgs = outMsgs;
+      this.errMsgs = errMsgs;
+    }
+  }
+  
   public static class ExecutionError extends Error {
     private static final long serialVersionUID = -4924660269220590175L;
-    private final String[] cmds;
-    private final String[] outMsgs;
-    private final String[] errMsgs;
+    public final String[] cmds;
+    public final String[] outMsgs;
+    public final String[] errMsgs;
 
     public ExecutionError(String message, String[] cmds, String[] outMsgs, String[] errMsgs) {
       super(message + ": " + log.commandLineAsString(cmds));
@@ -71,26 +82,6 @@ public class CommandExecution {
       this.outMsgs = outMsgs;
       this.errMsgs = errMsgs;
     }
-
-    public String[] getCmds() {
-      return cmds;
-    }
-
-    public String[] getOutMsgs() {
-      return outMsgs;
-    }
-
-    public String[] getErrMsgs() {
-      return errMsgs;
-    }
-  }
-  
-  
-  
-  private boolean silent;
-  
-  public CommandExecution(boolean silent) {
-    this.silent = silent;
   }
   
   /**
@@ -131,7 +122,25 @@ public class CommandExecution {
       return msg;
     }
   }
-
+  
+  private boolean silent;
+  
+  public Exec(boolean silent) {
+    this.silent = silent;
+  }
+  
+  public static ExecutionResult run(Path dir, String... cmds) {
+    return new Exec(true).runWithPrefix(cmds[0], dir, cmds);
+  }
+  public static ExecutionResult run(String... cmds) {
+    return new Exec(true).runWithPrefix(cmds[0], null, cmds);
+  }
+  public static ExecutionResult run(boolean silent, Path dir, String... cmds) {
+    return new Exec(silent).runWithPrefix(cmds[0], dir, cmds);
+  }
+  public static ExecutionResult run(boolean silent, String... cmds) {
+    return new Exec(silent).runWithPrefix(cmds[0], null, cmds);
+  }
 
   /**
    * Executes the given command.
@@ -149,11 +158,11 @@ public class CommandExecution {
    * @throws IOException
    *         when something goes wrong
    */
-  public String[][] execute(Path dir, String... cmds) {
-    return executeWithPrefix(cmds[0], dir, cmds);
+  public ExecutionResult exec(Path dir, String... cmds) {
+    return runWithPrefix(cmds[0], dir, cmds);
   }
-  public String[][] execute(String... cmds) {
-    return executeWithPrefix(cmds[0], null, cmds);
+  public ExecutionResult exec(String... cmds) {
+    return runWithPrefix(cmds[0], null, cmds);
   }
   
 
@@ -172,10 +181,10 @@ public class CommandExecution {
    * @throws IOException
    *         when something goes wrong
    */
-  public String[][] executeWithPrefix(String prefix, String... cmds) {
-    return executeWithPrefix(prefix, null, cmds);
+  public ExecutionResult runWithPrefix(String prefix, String... cmds) {
+    return runWithPrefix(prefix, null, cmds);
   }
-  public String[][] executeWithPrefix(String prefix, Path dir, String... cmds) {
+  public ExecutionResult runWithPrefix(String prefix, Path dir, String... cmds) {
     int exitValue;
     
     StreamRunner errStreamLogger = null;
@@ -208,7 +217,7 @@ public class CommandExecution {
         throw new ExecutionError("Command failed", cmds, outMsgs.toArray(new String[outMsgs.size()]), errMsgs.toArray(new String[errMsgs.size()]));
       }
       
-      return new String[][]{outMsgs.toArray(new String[outMsgs.size()]), errMsgs.toArray(new String[errMsgs.size()])};
+      return new ExecutionResult(outMsgs.toArray(new String[outMsgs.size()]), errMsgs.toArray(new String[errMsgs.size()]));
     } catch (ExecutionError e) {
       throw e; 
     } catch (Throwable t) {
