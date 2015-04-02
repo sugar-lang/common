@@ -96,7 +96,8 @@ public class JavaCommands {
     
     if (!ok) {
       List<Pair<SourceLocation, String>> errors = parseJavacErrors(errOut);
-      throw new SourceCodeException(errors);
+      if (!errors.isEmpty())
+        throw new SourceCodeException(errors);
     }
     
     List<Path> generatedFiles = new LinkedList<Path>();
