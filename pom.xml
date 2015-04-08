@@ -10,7 +10,7 @@
 		<groupId>org.sugarj</groupId>
 		<artifactId>maven-config-java</artifactId>
 		<version>1.0.0-SNAPSHOT</version>
-		<relativePath>../deployment/maven-config-java</relativePath>
+		<relativePath></relativePath>
 	</parent>
 
 	<packaging>jar</packaging>
@@ -43,4 +43,17 @@
 			<version>4.4.2</version>
 		</dependency>
 	</dependencies>
+	
+	 <repositories>
+    <repository>
+      <id>sugar-lang</id>
+      <url>http://sugar-lang.github.io/mvnrepository/</url>
+      <releases>
+        <enabled>false</enabled>
+      </releases>
+      <snapshots>
+        <enabled>true</enabled>
+      </snapshots>
+    </repository>
+	</repositories>
 </project>
