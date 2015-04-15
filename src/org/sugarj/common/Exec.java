@@ -130,6 +130,9 @@ public class Exec {
     this.silent = silent;
   }
   
+  public static ExecutionResult run(String[] cmds) {
+    return new Exec(true).runWithPrefix(cmds[0], null, (Object[]) cmds);
+  }
   public static ExecutionResult run(Path dir, Object... cmds) {
     return new Exec(true).runWithPrefix(cmds[0].toString(), dir, cmds);
   }
