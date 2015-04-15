@@ -36,24 +36,28 @@
 			<artifactId>strategoxt-min-jar</artifactId>
 			<version>1.4.0</version>
 		</dependency>
-
+		<dependency>
+			<groupId>org.metaborg</groupId>
+			<artifactId>org.strategoxt.strj</artifactId>
+			<version>1.4.0</version>
+		</dependency>
 		<dependency>
 			<groupId>org.eclipse.jdt.core.compiler</groupId>
 			<artifactId>ecj</artifactId>
 			<version>4.4.2</version>
 		</dependency>
 	</dependencies>
-	
-	 <repositories>
-    <repository>
-      <id>sugar-lang</id>
-      <url>http://sugar-lang.github.io/mvnrepository/</url>
-      <releases>
-        <enabled>false</enabled>
-      </releases>
-      <snapshots>
-        <enabled>true</enabled>
-      </snapshots>
-    </repository>
+
+	<repositories>
+		<repository>
+			<id>sugar-lang</id>
+			<url>http://sugar-lang.github.io/mvnrepository/</url>
+			<releases>
+				<enabled>false</enabled>
+			</releases>
+			<snapshots>
+				<enabled>true</enabled>
+			</snapshots>
+		</repository>
 	</repositories>
 </project>
