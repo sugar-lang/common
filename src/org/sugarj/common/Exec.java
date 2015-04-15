@@ -15,6 +15,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 
 import org.sugarj.common.path.Path;
+import org.sugarj.common.util.ArrayUtils;
 
 
 /**
@@ -129,17 +130,17 @@ public class Exec {
     this.silent = silent;
   }
   
-  public static ExecutionResult run(Path dir, String... cmds) {
-    return new Exec(true).runWithPrefix(cmds[0], dir, cmds);
+  public static ExecutionResult run(Path dir, Object... cmds) {
+    return new Exec(true).runWithPrefix(cmds[0].toString(), dir, cmds);
   }
-  public static ExecutionResult run(String... cmds) {
-    return new Exec(true).runWithPrefix(cmds[0], null, cmds);
+  public static ExecutionResult run(String cmd, Object... cmds) {
+    return new Exec(true).runWithPrefix(cmd.toString(), null, ArrayUtils.arrayAdd(cmd, cmds));
   }
-  public static ExecutionResult run(boolean silent, Path dir, String... cmds) {
-    return new Exec(silent).runWithPrefix(cmds[0], dir, cmds);
+  public static ExecutionResult run(boolean silent, Path dir, Object... cmds) {
+    return new Exec(silent).runWithPrefix(cmds[0].toString(), dir, cmds);
   }
-  public static ExecutionResult run(boolean silent, String... cmds) {
-    return new Exec(silent).runWithPrefix(cmds[0], null, cmds);
+  public static ExecutionResult run(boolean silent, String cmd, Object... cmds) {
+    return new Exec(silent).runWithPrefix(cmd, null, ArrayUtils.arrayAdd(cmd, cmds));
   }
 
   /**
@@ -158,11 +159,11 @@ public class Exec {
    * @throws IOException
    *         when something goes wrong
    */
-  public ExecutionResult exec(Path dir, String... cmds) {
-    return runWithPrefix(cmds[0], dir, cmds);
+  public ExecutionResult exec(Path dir, Object... cmds) {
+    return runWithPrefix(cmds[0].toString(), dir, cmds);
   }
-  public ExecutionResult exec(String... cmds) {
-    return runWithPrefix(cmds[0], null, cmds);
+  public ExecutionResult exec(String cmd, Object... cmds) {
+    return runWithPrefix(cmd, null, ArrayUtils.arrayAdd(cmd, cmds));
   }
   
 
@@ -181,12 +182,16 @@ public class Exec {
    * @throws IOException
    *         when something goes wrong
    */
-  public ExecutionResult runWithPrefix(String prefix, String... cmds) {
+  public ExecutionResult runWithPrefix(String prefix, Object... cmds) {
     return runWithPrefix(prefix, null, cmds);
   }
-  public ExecutionResult runWithPrefix(String prefix, Path dir, String... cmds) {
+  public ExecutionResult runWithPrefix(String prefix, Path dir, Object... cmds) {
     int exitValue;
-    
+
+    String[] scmds = new String[cmds.length];
+    for (int i = 0; i< cmds.length; i++)
+      scmds[i] = cmds[i].toString();
+
     StreamRunner errStreamLogger = null;
     StreamRunner outStreamLogger = null;
     try {
@@ -196,7 +201,7 @@ public class Exec {
 //        log.beginExecution(prefix, cmds);
 //      }
 
-      Process p = rt.exec(cmds, null, dir == null ? null : dir.getFile());
+      Process p = rt.exec(scmds, null, dir == null ? null : dir.getFile());
 
       errStreamLogger = new StreamRunner(p.getErrorStream(), "");
       outStreamLogger = new StreamRunner(p.getInputStream(), "");
@@ -214,7 +219,7 @@ public class Exec {
       List<String> errMsgs = errFuture.get();
 
       if (exitValue != 0) {
-        throw new ExecutionError("Command failed", cmds, outMsgs.toArray(new String[outMsgs.size()]), errMsgs.toArray(new String[errMsgs.size()]));
+        throw new ExecutionError("Command failed", scmds, outMsgs.toArray(new String[outMsgs.size()]), errMsgs.toArray(new String[errMsgs.size()]));
       }
       
       return new ExecutionResult(outMsgs.toArray(new String[outMsgs.size()]), errMsgs.toArray(new String[errMsgs.size()]));
@@ -224,7 +229,7 @@ public class Exec {
       List<String> outMsgs = outStreamLogger == null ? new ArrayList<String>() : outStreamLogger.peek();
       List<String> errMsgs = errStreamLogger == null ? new ArrayList<String>() : errStreamLogger.peek();
 
-      throw new ExecutionError("problems while executing " + prefix + ": " + t.getMessage(), cmds, outMsgs.toArray(new String[outMsgs.size()]), errMsgs.toArray(new String[errMsgs.size()]), t);
+      throw new ExecutionError("problems while executing " + prefix + ": " + t.getMessage(), scmds, outMsgs.toArray(new String[outMsgs.size()]), errMsgs.toArray(new String[errMsgs.size()]), t);
     }
     
   }
