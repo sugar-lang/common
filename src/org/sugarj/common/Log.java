@@ -100,7 +100,7 @@ public class Log {
   }
   
   public void endTask(boolean success) {
-    endTask(success, "successful", "failed");
+    endTask(success, "succeeded", "failed");
   }
   
   public void endTask(boolean success, String good, String bad) {

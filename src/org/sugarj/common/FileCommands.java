@@ -452,7 +452,11 @@ public class FileCommands {
   }
 
   public static String dropDirectory(Path p) {
-    return fileName(p) + "." + getExtension(p);
+    String ext = getExtension(p);
+    if (ext == null)
+      return fileName(p);
+    else 
+      return fileName(p) + "." + getExtension(p);
   }
 
   public static AbsolutePath replaceExtension(AbsolutePath p, String newExtension) {
@@ -474,6 +478,10 @@ public class FileCommands {
 
   public static RelativePath dropFilename(RelativePath file) {
     return new RelativePath(file.getBasePath(), dropFilename(file.getRelativePath()));
+  }
+  
+  public static AbsolutePath dropFilename(Path file) {
+    return new AbsolutePath(dropFilename(file.getAbsolutePath()));
   }
 
   public static String dropFilename(String file) {
