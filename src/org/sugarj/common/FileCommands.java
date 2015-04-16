@@ -13,10 +13,12 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.net.URI;
+import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.file.CopyOption;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
+import java.security.CodeSource;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
@@ -576,5 +578,29 @@ public class FileCommands {
     if (p instanceof RelativePath)
       return ((RelativePath) p).getRelativePath();
     return p.getAbsolutePath();
+  }
+  
+  public static Path getRessourcePath(Class<?> clazz) throws URISyntaxException {
+    String className = clazz.getName();
+    URL url = clazz.getResource(className.substring(className.lastIndexOf(".") + 1) + ".class");
+    String path = url == null ? null : url.getPath();
+    if (path == null)
+      return null;
+    
+    // remove URL leftovers
+    if (path.startsWith("file:")) {
+      path = path.substring("file:".length());
+    }
+
+    // is the class file inside a jar?
+    if (path.contains(".jar!")) {
+      path = path.substring(0, path.indexOf(".jar!") + ".jar".length());
+    }
+
+    // have we found the class file?
+    if (AbsolutePath.acceptable(path))
+      return new AbsolutePath(path);
+    
+    return null;
   }
 }
