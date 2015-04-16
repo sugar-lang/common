@@ -18,7 +18,6 @@ import java.net.URL;
 import java.nio.file.CopyOption;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
-import java.security.CodeSource;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
@@ -580,7 +579,7 @@ public class FileCommands {
     return p.getAbsolutePath();
   }
   
-  public static Path getRessourcePath(Class<?> clazz) throws URISyntaxException {
+  public static Path getRessourcePath(Class<?> clazz) {
     String className = clazz.getName();
     URL url = clazz.getResource(className.substring(className.lastIndexOf(".") + 1) + ".class");
     String path = url == null ? null : url.getPath();
