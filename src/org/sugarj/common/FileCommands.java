@@ -13,7 +13,6 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.net.URI;
-import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.file.CopyOption;
 import java.nio.file.Files;
@@ -22,11 +21,15 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Enumeration;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
+import java.util.jar.JarFile;
+import java.util.zip.ZipEntry;
 
+import org.apache.commons.io.IOUtils;
 import org.sugarj.common.path.AbsolutePath;
 import org.sugarj.common.path.Path;
 import org.sugarj.common.path.RelativePath;
@@ -601,5 +604,31 @@ public class FileCommands {
       return new AbsolutePath(path);
     
     return null;
+  }
+
+  public static Path unpackJarfile(Path jar) throws IOException {
+    Path dir = newTempDir();
+    unpackJarfile(dir, jar);
+    return dir;
+  }
+  
+  public static void unpackJarfile(Path outdir, Path jar) throws IOException {
+    try (JarFile jarFile = new JarFile(jar.getFile())) {
+      Enumeration<? extends ZipEntry> entries = jarFile.entries();
+      while (entries.hasMoreElements()) {
+        ZipEntry entry = entries.nextElement();
+        File entryDestination = new File(outdir.getAbsolutePath(), entry.getName());
+        entryDestination.getParentFile().mkdirs();
+        if (entry.isDirectory())
+          entryDestination.mkdirs();
+        else {
+          InputStream in = jarFile.getInputStream(entry);
+          OutputStream out = new FileOutputStream(entryDestination);
+          IOUtils.copy(in, out);
+          IOUtils.closeQuietly(in);
+          IOUtils.closeQuietly(out);
+        }
+      }
+    }
   }
 }
