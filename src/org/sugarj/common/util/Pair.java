@@ -1,6 +1,8 @@
 package org.sugarj.common.util;
 
 import java.io.Serializable;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Objects;
 
 public class Pair<A, B> implements Serializable {
@@ -34,5 +36,12 @@ public class Pair<A, B> implements Serializable {
       return Objects.equals(a, p.a) && Objects.equals(b, p.b);
     }
     return false;
+  }
+  
+  public static <A,B> Map<A, B> asMap(Iterable<Pair<A, B>> col) {
+    Map<A, B> map = new HashMap<>();
+    for (Pair<A, B> p : col)
+      map.put(p.a, p.b);
+    return map;
   }
 }
