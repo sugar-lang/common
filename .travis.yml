@@ -4,3 +4,5 @@ script: mvn deploy -U
 cache:
   directories:
     - '$HOME/.m2/repository'
+
+jdk: oraclejdk8
