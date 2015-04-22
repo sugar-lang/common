@@ -10,6 +10,7 @@ import org.sugarj.common.FileCommands;
 /**
  * @author Sebastian Erdweg <seba at informatik uni-marburg de>
  */
+@Deprecated
 public class RelativePath extends Path {
   private String relativePath;
   private Path base;

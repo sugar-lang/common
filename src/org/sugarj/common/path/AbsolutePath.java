@@ -11,6 +11,7 @@ import org.sugarj.common.FileCommands;
 /**
  * @author Sebastian Erdweg <seba at informatik uni-marburg de>
  */
+@Deprecated
 public class AbsolutePath extends Path {
 
   private String path;

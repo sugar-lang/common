@@ -6,6 +6,7 @@ import java.io.File;
 /**
  * @author Sebastian Erdweg <seba at informatik uni-marburg de>
  */
+@Deprecated
 public abstract class Path implements Externalizable {
 
   public abstract String getAbsolutePath();
