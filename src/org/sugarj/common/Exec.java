@@ -3,6 +3,7 @@ package org.sugarj.common;
 import static org.sugarj.common.Log.log;
 
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -14,7 +15,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 
-import org.sugarj.common.path.Path;
 import org.sugarj.common.util.ArrayUtils;
 
 
@@ -133,10 +133,10 @@ public class Exec {
   public static ExecutionResult run(String... cmds) {
     return new Exec(true).runWithPrefix(cmds[0], null, cmds);
   }
-  public static ExecutionResult run(Path dir, String... cmds) {
+  public static ExecutionResult run(File dir, String... cmds) {
     return new Exec(true).runWithPrefix(cmds[0].toString(), dir, cmds);
   }
-  public static ExecutionResult run(boolean silent, Path dir, String... cmds) {
+  public static ExecutionResult run(boolean silent, File dir, String... cmds) {
     return new Exec(silent).runWithPrefix(cmds[0].toString(), dir, cmds);
   }
   public static ExecutionResult run(boolean silent, String... cmds) {
@@ -159,7 +159,7 @@ public class Exec {
    * @throws IOException
    *         when something goes wrong
    */
-  public ExecutionResult exec(Path dir, Object... cmds) {
+  public ExecutionResult exec(File dir, Object... cmds) {
     return runWithPrefix(cmds[0].toString(), dir, cmds);
   }
   public ExecutionResult exec(String cmd, Object... cmds) {
@@ -185,7 +185,7 @@ public class Exec {
   public ExecutionResult runWithPrefix(String prefix, Object... cmds) {
     return runWithPrefix(prefix, null, cmds);
   }
-  public ExecutionResult runWithPrefix(String prefix, Path dir, String... cmds) {
+  public ExecutionResult runWithPrefix(String prefix, File dir, String... cmds) {
     int exitValue;
 
     StreamRunner errStreamLogger = null;
@@ -197,7 +197,7 @@ public class Exec {
 //        log.beginExecution(prefix, cmds);
 //      }
 
-      Process p = rt.exec(cmds, null, dir == null ? null : dir.getFile());
+      Process p = rt.exec(cmds, null, dir == null ? null : dir);
 
       errStreamLogger = new StreamRunner(p.getErrorStream(), "");
       outStreamLogger = new StreamRunner(p.getInputStream(), "");

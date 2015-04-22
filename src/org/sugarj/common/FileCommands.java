@@ -471,6 +471,10 @@ public class FileCommands {
     return file != null && file.getFile().exists();
   }
   
+  public static boolean exists(File file) {
+    return file != null && file.exists();
+  }
+  
   public static boolean exists(java.nio.file.Path file) {
     return file != null && Files.exists(file);
   }
@@ -549,6 +553,10 @@ public class FileCommands {
   public static java.nio.file.Path replaceExtension(java.nio.file.Path p, String newExtension) {
     java.nio.file.Path withoutExt = dropExtension(p);
     return addExtension(withoutExt, newExtension);
+  }
+  
+  public static File replaceExtension(File p, String newExtension) {
+    return replaceExtension(p.toPath(), newExtension).toFile();
   }
 
   public static Path addExtension(Path p, String newExtension) {
