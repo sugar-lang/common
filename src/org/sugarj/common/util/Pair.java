@@ -24,6 +24,14 @@ public class Pair<A, B> implements Serializable {
     return "(" + (a == null ? "null" : a.toString()) + ", " + (b == null ? "null" : b.toString()) + ")";
   }
   
+  public A getA() {
+    return a;
+  }
+
+  public B getB() {
+    return b;
+  }
+
   @Override
   public int hashCode() {
     return Objects.hash(a, b);

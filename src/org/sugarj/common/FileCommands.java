@@ -20,7 +20,6 @@ import java.nio.file.FileVisitResult;
 import java.nio.file.FileVisitor;
 import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
-import java.nio.file.NotDirectoryException;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.BasicFileAttributes;
@@ -571,6 +570,10 @@ public class FileCommands {
   
   public static java.nio.file.Path addExtension(java.nio.file.Path p, String newExtension) {
     return p.getParent().resolve(p.getFileName() + "." + newExtension);
+  }
+
+  public static File addExtension(File p, String newExtension) {
+    return addExtension(p.toPath(), newExtension).toFile();
   }
 
   public static RelativePath dropFilename(RelativePath file) {
