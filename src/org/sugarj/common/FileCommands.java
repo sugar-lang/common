@@ -161,6 +161,14 @@ public class FileCommands {
     fos.close();
   }
 
+  public static void writeToFile(java.nio.file.Path file, String content) throws IOException {
+    Files.write(file, Collections.singleton(content));
+  }
+
+  public static void writeToFile(File file, String content) throws IOException {
+    writeToFile(file.toPath(), content);
+  }
+
   public static void writeLinesFile(Path file, List<String> lines) throws IOException {
     FileCommands.createFile(file);
     BufferedWriter writer = new BufferedWriter(new FileWriter(file.getFile()));
