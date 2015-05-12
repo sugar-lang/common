@@ -34,6 +34,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.jar.JarFile;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import java.util.zip.ZipEntry;
 
 import org.apache.commons.io.IOUtils;
@@ -97,7 +98,11 @@ public class FileCommands {
 
     file.getFile().delete();
   }
-  
+
+  public static void delete(File file) throws IOException {
+    delete(file.toPath());
+  }
+
   public static void delete(java.nio.file.Path file) throws IOException {
     if (file == null)
       return;
@@ -137,12 +142,27 @@ public class FileCommands {
     Files.copy(from.getFile().toPath(), to.getFile().toPath(), optSet.toArray(new CopyOption[optSet.size()]));
   }
 
+  public static void copyFile(File from, File to, CopyOption... options) throws IOException {
+    Set<CopyOption> optSet = new HashSet<>();
+    for (CopyOption o : options)
+      optSet.add(o);
+    optSet.add(StandardCopyOption.REPLACE_EXISTING);
+
+    Files.copy(from.toPath(), to.toPath(), optSet.toArray(new CopyOption[optSet.size()]));
+  }
+
   public static void copyFile(InputStream in, OutputStream out) throws IOException {
     int len;
     byte[] b = new byte[1024];
 
     while ((len = in.read(b)) > 0)
       out.write(b, 0, len);
+  }
+
+  public static boolean acceptableAsAbsolute(String path) {
+
+    return new File(path).isAbsolute() || path.startsWith("./") || path.startsWith("." + File.separator) || path.equals(".");
+
   }
 
   /**
@@ -243,6 +263,10 @@ public class FileCommands {
     return fileName(new AbsolutePath(url.getPath()));
   }
 
+  public static String fileName(File url) {
+    return fileName(toCygwinPath(url.getPath()));
+  }
+
   public static String fileName(URI uri) {
     return fileName(new AbsolutePath(uri.getPath()));
   }
@@ -277,6 +301,21 @@ public class FileCommands {
       paths[i] = new RelativePath(p, files[i].getName());
 
     return paths;
+  }
+
+  public static Stream<File> streamFiles(File dir, FileFilter filter) {
+    return streamFiles(dir).filter((File f) -> filter.accept(f));
+  }
+
+  @SuppressWarnings("resource")
+  public static Stream<File> streamFiles(File dir) {
+    Stream<java.nio.file.Path> files;
+    try {
+      files = Files.walk(dir.toPath());
+    } catch (IOException e) {
+      files = Stream.empty();
+    }
+    return files.map(java.nio.file.Path::toFile);
   }
 
   public static List<java.nio.file.Path> listFilesRecursive(java.nio.file.Path p) {
@@ -334,17 +373,15 @@ public class FileCommands {
     return null;
   }
 
-  public static Path newTempDir() throws IOException {
+  public static File newTempDir() throws IOException {
     final File f = File.createTempFile("SugarJ", "");
     // need to delete the file, but want to reuse the filename
     f.delete();
     f.mkdir();
-    final Path p = new AbsolutePath(f.getAbsolutePath());
-
-    return p;
+    return f;
   }
 
-  public static Path tryNewTempDir() {
+  public static File tryNewTempDir() {
     try {
       return newTempDir();
     } catch (IOException e) {
@@ -387,6 +424,10 @@ public class FileCommands {
     }
   }
 
+  public static void createFile(File file) throws IOException {
+    createFile(file.toPath());
+  }
+
   /**
    * Create file with name deduced from hash in dir.
    * 
@@ -407,7 +448,7 @@ public class FileCommands {
     if (!isMade && !exists)
       throw new IOException("Failed to create the directories\n" + dir);
   }
-  
+
   public static void createDir(java.nio.file.Path dir) throws IOException {
     if (Files.exists(dir))
       throw new IOException("Failed to create the directories\n" + dir);
@@ -474,14 +515,18 @@ public class FileCommands {
     return file != null && file.getFile().exists() && file.getFile().isFile();
   }
 
+  public static boolean fileExists(File file) {
+    return file != null && file.exists() && file.isFile();
+  }
+
   public static boolean exists(Path file) {
     return file != null && file.getFile().exists();
   }
-  
+
   public static boolean exists(File file) {
     return file != null && file.exists();
   }
-  
+
   public static boolean exists(java.nio.file.Path file) {
     return file != null && Files.exists(file);
   }
@@ -523,16 +568,15 @@ public class FileCommands {
 
     return file;
   }
-  
+
   public static java.nio.file.Path dropExtension(java.nio.file.Path p) {
     java.nio.file.Path file = p.getFileName();
     java.nio.file.Path parent = p.getParent();
-    
+
     String fileName = file.toString();
-    
+
     int i = fileName.lastIndexOf('.');
 
-    
     if (i > 0) {
       String newName = fileName.substring(0, i);
       return parent.resolve(newName);
@@ -556,12 +600,12 @@ public class FileCommands {
   public static RelativePath replaceExtension(RelativePath p, String newExtension) {
     return p.replaceExtension(newExtension);
   }
-  
+
   public static java.nio.file.Path replaceExtension(java.nio.file.Path p, String newExtension) {
     java.nio.file.Path withoutExt = dropExtension(p);
     return addExtension(withoutExt, newExtension);
   }
-  
+
   public static File replaceExtension(File p, String newExtension) {
     return replaceExtension(p.toPath(), newExtension).toFile();
   }
@@ -575,7 +619,7 @@ public class FileCommands {
   public static AbsolutePath addExtension(AbsolutePath p, String newExtension) {
     return new AbsolutePath(p.getAbsolutePath() + "." + newExtension);
   }
-  
+
   public static java.nio.file.Path addExtension(java.nio.file.Path p, String newExtension) {
     return p.getParent().resolve(p.getFileName() + "." + newExtension);
   }
@@ -605,16 +649,16 @@ public class FileCommands {
       return streamHash(inputStream);
     }
   }
-  
+
   public static byte[] fileHash(java.nio.file.Path file) throws IOException {
     try (InputStream inputStream = Files.newInputStream(file)) {
       return streamHash(inputStream);
     }
   }
-  
+
   public static byte[] streamHash(InputStream inputStream) throws IOException {
     // http://www.codejava.net/coding/how-to-calculate-md5-and-sha-hash-values-in-java
-    try { 
+    try {
       MessageDigest digest = MessageDigest.getInstance("SHA-1");
 
       byte[] bytesBuffer = new byte[1024];
@@ -630,7 +674,7 @@ public class FileCommands {
     } catch (NoSuchAlgorithmException e) {
       return null;
     }
-   
+
   }
 
   public static byte[] tryFileHash(Path file) {
@@ -676,6 +720,19 @@ public class FileCommands {
     return null;
   }
 
+  public static java.nio.file.Path getRelativePath(java.nio.file.Path base, java.nio.file.Path fullPath) {
+    try {
+      return base.relativize(fullPath);
+    } catch (IllegalArgumentException e) {
+      // Cannot be relativized
+      return null;
+    }
+  }
+
+  public static java.nio.file.Path getRelativePath(File base, File fullPath) {
+    return getRelativePath(base.toPath(), fullPath.toPath());
+  }
+
   public static Path copyFile(Path from, Path to, Path file, CopyOption... options) {
     RelativePath p = getRelativePath(from, file);
     if (p == null)
@@ -693,12 +750,29 @@ public class FileCommands {
     }
   }
 
+  public static File copyFile(File from, File to, File file, CopyOption... options) {
+    java.nio.file.Path p = getRelativePath(from, file);
+    if (p == null)
+      return null;
+
+    File target = new File(to, p.toString());
+    if (!FileCommands.exists(p))
+      return target;
+    try {
+      copyFile(p.toFile(), target, options);
+      return target;
+    } catch (IOException e) {
+      e.printStackTrace();
+      return target;
+    }
+  }
+
   public static String tryGetRelativePath(Path p) {
     if (p instanceof RelativePath)
       return ((RelativePath) p).getRelativePath();
     return p.getAbsolutePath();
   }
-  
+
   public static java.nio.file.Path getRessourcePath(Class<?> clazz) {
     String className = clazz.getName();
     URL url = clazz.getResource(className.substring(className.lastIndexOf(".") + 1) + ".class");
@@ -719,27 +793,24 @@ public class FileCommands {
     // have we found the class file?
     try {
       return Paths.get(path);
-    } catch(InvalidPathException e) {
+    } catch (InvalidPathException e) {
       return null;
     }
-    
-  }
-  
-  public static boolean acceptable(String path){
-    return new File(path).isAbsolute()
-        || path.startsWith("./")
-        || path.startsWith("." + File.separator)
-        || path.equals(".");
+
   }
 
-  public static Path unpackJarfile(Path jar) throws IOException {
-    Path dir = newTempDir();
+  public static boolean acceptable(String path) {
+    return new File(path).isAbsolute() || path.startsWith("./") || path.startsWith("." + File.separator) || path.equals(".");
+  }
+
+  public static File unpackJarfile(File jar) throws IOException {
+    File dir = newTempDir();
     unpackJarfile(dir, jar);
     return dir;
   }
 
-  public static void unpackJarfile(Path outdir, Path jar) throws IOException {
-    try (JarFile jarFile = new JarFile(jar.getFile())) {
+  public static void unpackJarfile(File outdir, File jar) throws IOException {
+    try (JarFile jarFile = new JarFile(jar)) {
       Enumeration<? extends ZipEntry> entries = jarFile.entries();
       while (entries.hasMoreElements()) {
         ZipEntry entry = entries.nextElement();
