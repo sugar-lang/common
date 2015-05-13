@@ -46,7 +46,7 @@ public class RelativePath extends Path {
     if (getBasePath() == null)
       throw new IllegalStateException("Base of relative path is still open; cannot construct absolute path yet.");
       
-    return getBasePath() + File.separator + getRelativePath();
+    return getBasePath() + "/" + getRelativePath();
   }
 
   @Override
