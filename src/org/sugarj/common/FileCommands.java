@@ -325,14 +325,15 @@ public class FileCommands {
   public static List<java.nio.file.Path> listFilesRecursive(java.nio.file.Path p, final FileFilter filter) {
     // Guarentees that list is mutable
     try {
-      List<java.nio.file.Path> paths = Files.list(p).collect(Collectors.toCollection(ArrayList::new));
-
-      for (java.nio.file.Path child : paths) {
-        if (filter == null || filter.accept(child.toFile()))
-          paths.add(child);
-        if (Files.isDirectory(child))
-          paths.addAll(listFilesRecursive(child, filter));
+      final Stream<java.nio.file.Path> allFiles = Files.walk(p);
+      final Stream<java.nio.file.Path> filteredFiles;
+      if (filter == null) {
+        filteredFiles = allFiles;
+      } else {
+        filteredFiles = allFiles.filter((java.nio.file.Path x) -> filter.accept(x.toFile()));
       }
+      List<java.nio.file.Path> paths = filteredFiles.collect(Collectors.toCollection(ArrayList::new));
+
       return paths;
     } catch (IOException e) {
       return Collections.emptyList();
