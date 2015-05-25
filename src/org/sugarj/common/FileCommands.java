@@ -32,6 +32,7 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
+import java.util.function.Predicate;
 import java.util.jar.JarFile;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -325,7 +326,8 @@ public class FileCommands {
   public static List<java.nio.file.Path> listFilesRecursive(java.nio.file.Path p, final FileFilter filter) {
     // Guarentees that list is mutable
     try {
-      final Stream<java.nio.file.Path> allFiles = Files.walk(p);
+      Predicate<java.nio.file.Path> isDir = Files::isDirectory;
+      final Stream<java.nio.file.Path> allFiles = Files.walk(p).filter(isDir.negate());
       final Stream<java.nio.file.Path> filteredFiles;
       if (filter == null) {
         filteredFiles = allFiles;
@@ -451,8 +453,6 @@ public class FileCommands {
   }
 
   public static void createDir(java.nio.file.Path dir) throws IOException {
-    if (Files.exists(dir))
-      throw new IOException("Failed to create the directories\n" + dir);
     Files.createDirectories(dir);
     boolean exists = Files.exists(dir);
     if (!exists)
@@ -757,10 +757,10 @@ public class FileCommands {
       return null;
 
     File target = new File(to, p.toString());
-    if (!FileCommands.exists(p))
-      return target;
     try {
-      copyFile(p.toFile(), target, options);
+      if (!FileCommands.exists(target))
+        target.getParentFile().mkdirs();
+      copyFile(file, target, options);
       return target;
     } catch (IOException e) {
       e.printStackTrace();
