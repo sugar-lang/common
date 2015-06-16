@@ -777,6 +777,10 @@ public class FileCommands {
   public static java.nio.file.Path getRessourcePath(Class<?> clazz) {
     String className = clazz.getName();
     URL url = clazz.getResource(className.substring(className.lastIndexOf(".") + 1) + ".class");
+    return getRessourcePath(url);
+  }
+  
+  public static java.nio.file.Path getRessourcePath(URL url) {
     String path = url == null ? null : url.getPath();
     if (path == null)
       return null;
