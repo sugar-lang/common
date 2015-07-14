@@ -22,31 +22,6 @@
 
 	<dependencies>
 		<dependency>
-			<groupId>org.metaborg</groupId>
-			<artifactId>org.spoofax.terms</artifactId>
-			<version>1.4.0</version>
-		</dependency>
-		<dependency>
-			<groupId>org.metaborg</groupId>
-			<artifactId>org.spoofax.jsglr</artifactId>
-			<version>1.4.0</version>
-		</dependency>
-		<dependency>
-			<groupId>org.metaborg</groupId>
-			<artifactId>org.spoofax.interpreter.library.interpreter</artifactId>
-			<version>1.4.0</version>
-		</dependency>
-		<dependency>
-			<groupId>org.metaborg</groupId>
-			<artifactId>strategoxt-min-jar</artifactId>
-			<version>1.4.0</version>
-		</dependency>
-		<dependency>
-			<groupId>org.metaborg</groupId>
-			<artifactId>org.strategoxt.strj</artifactId>
-			<version>1.4.0</version>
-		</dependency>
-		<dependency>
 			<groupId>org.eclipse.jdt.core.compiler</groupId>
 			<artifactId>ecj</artifactId>
 			<version>4.4.2</version>
