@@ -1,9 +1,7 @@
 package org.sugarj.common;
 
 import java.io.PrintStream;
-import java.util.Stack;
-
-import org.sugarj.common.Exec;
+import java.util.LinkedList;
 
 public class Log {
   /**
@@ -26,9 +24,9 @@ public class Log {
   
   public static final Log log = new Log();
   
-  private Stack<String> tasks = new Stack<String>();
-  private Stack<Long> timings = new Stack<Long>();
-  private Stack<Boolean> lightweight = new Stack<Boolean>();
+  private LinkedList<String> tasks = new LinkedList<String>();
+  private LinkedList<Long> timings = new LinkedList<Long>();
+  private LinkedList<Boolean> lightweight = new LinkedList<Boolean>();
   private int silent = -1;
   private int loglevel = CORE;
   
@@ -41,20 +39,21 @@ public class Log {
     
     boolean active = (loglevel & tasklevel) > 0;
     
-    if (!active) {
+    if (!active ||  longText == null || shortText == null) {
       tasks.push(null);
-      return;
     }
-      
-    noLongerLeaf();
-
-    indent();
-    out.print(longText);
-    if (!inline) 
-      out.println();
-
-    tasks.push(shortText);
-    lightweight.push(inline);
+    else {
+      noLongerLeaf();
+  
+      indent();
+      out.print(longText);
+      if (!inline) 
+        out.println();
+  
+      tasks.push(shortText);
+      lightweight.push(inline);
+    }
+    
     timings.push(System.currentTimeMillis());
   }
   
@@ -66,21 +65,21 @@ public class Log {
     beginTask(text, text, level);
   }
   
-  public synchronized void endTask(String error, boolean doneMessage) {
+  public synchronized long endTask(String error, boolean doneMessage) {
     if (silent >= 0)
-      return;
+      return -1;
     
     long endTime = System.currentTimeMillis();
     
     if (tasks.isEmpty())
-      return;
+      return -1;
     
-    String shortText = tasks.pop();
-    if (shortText == null)
-      return;
-    
+    String shortText = tasks.pop();    
     Long startTime = timings.pop();
     long duration = endTime - startTime;
+
+    if (shortText == null)
+      return duration;
     
     if (lightweight.pop()) {
       out.println(" ... " + error + " - " + duration + "ms");
@@ -89,25 +88,27 @@ public class Log {
     }
     else 
       log.log(shortText + " ... " + error + " - " + duration + "ms", Log.ALWAYS);
+    
+    return duration;
   }
   
-  public void endTask() {
-    endTask("done", BORING_DONE_MESSAGES);
+  public long endTask() {
+    return endTask("done", BORING_DONE_MESSAGES);
   }
   
-  public void endTask(String error) {
-    endTask(error, true);
+  public long endTask(String error) {
+    return endTask(error, true);
   }
   
-  public void endTask(boolean success) {
-    endTask(success, "succeeded", "failed");
+  public Object endTask(boolean success) {
+    return endTask(success, "succeeded", "failed");
   }
   
-  public void endTask(boolean success, String good, String bad) {
+  public long endTask(boolean success, String good, String bad) {
     if (success)
-      endTask(good);
+      return endTask(good);
     else
-      endTask(bad);
+      return endTask(bad);
   }
   
   public void log(Object o, int msglevel) {
@@ -152,7 +153,7 @@ public class Log {
   }
   
   private void noLongerLeaf() {
-    if (!lightweight.empty() && lightweight.peek()) {
+    if (!lightweight.isEmpty() && lightweight.peek()) {
       lightweight.pop();
       lightweight.push(false);
       out.println();
