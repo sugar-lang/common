@@ -580,7 +580,11 @@ public class FileCommands {
 
     if (i > 0) {
       String newName = fileName.substring(0, i);
-      return parent.resolve(newName);
+      if (parent == null) {
+        return java.nio.file.Paths.get(newName);
+      } else {
+        return parent.resolve(newName);
+      }
     }
 
     return p;
@@ -622,7 +626,12 @@ public class FileCommands {
   }
 
   public static java.nio.file.Path addExtension(java.nio.file.Path p, String newExtension) {
-    return p.getParent().resolve(p.getFileName() + "." + newExtension);
+    String newName = p.getFileName() + "." + newExtension;
+    if (p.getParent() == null) {
+      return java.nio.file.Paths.get(newName);
+    } else {
+      return p.getParent().resolve(newName);
+    }
   }
 
   public static File addExtension(File p, String newExtension) {
