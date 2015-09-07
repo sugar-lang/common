@@ -739,7 +739,7 @@ public class FileCommands {
 
   public static java.nio.file.Path getRelativePath(java.nio.file.Path base, java.nio.file.Path fullPath) {
     try {
-      return base.relativize(fullPath);
+      return base.toAbsolutePath().relativize(fullPath.toAbsolutePath());
     } catch (IllegalArgumentException e) {
       // Cannot be relativized
       return null;
@@ -747,7 +747,7 @@ public class FileCommands {
   }
 
   public static java.nio.file.Path getRelativePath(File base, File fullPath) {
-    return getRelativePath(base.toPath().toAbsolutePath(), fullPath.toPath().toAbsolutePath());
+    return getRelativePath(base.toPath(), fullPath.toPath());
   }
 
   public static Path copyFile(Path from, Path to, Path file, CopyOption... options) {
