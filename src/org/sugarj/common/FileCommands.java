@@ -49,6 +49,13 @@ import org.sugarj.common.path.RelativePath;
  * @author Sebastian Erdweg <seba at informatik uni-marburg de>
  */
 public class FileCommands {
+  
+  public static void main(String[] args) {
+    String targetDir = "/Users/andiderp/repos/pluto-ecosystem/build-monto/targetsbj";
+    String p = "/Users/andiderp/repos/pluto-ecosystem/build-monto/targetsbj/monto/service/ast/AST.class";
+    java.nio.file.Path rel = getRelativePath(new File(targetDir), new File(p));
+    System.out.println(replaceExtension(rel, "java"));
+  }
 
   public final static boolean DO_DELETE = true;
 
@@ -740,7 +747,7 @@ public class FileCommands {
   }
 
   public static java.nio.file.Path getRelativePath(File base, File fullPath) {
-    return getRelativePath(base.toPath(), fullPath.toPath());
+    return getRelativePath(base.toPath().toAbsolutePath(), fullPath.toPath().toAbsolutePath());
   }
 
   public static Path copyFile(Path from, Path to, Path file, CopyOption... options) {
