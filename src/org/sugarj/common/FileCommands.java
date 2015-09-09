@@ -197,9 +197,9 @@ public class FileCommands {
     writeToFile(file.toPath(), content);
   }
 
-  public static void writeLinesFile(Path file, List<String> lines) throws IOException {
+  public static void writeLinesFile(File file, List<String> lines) throws IOException {
     FileCommands.createFile(file);
-    BufferedWriter writer = new BufferedWriter(new FileWriter(file.getFile()));
+    BufferedWriter writer = new BufferedWriter(new FileWriter(file));
     Iterator<String> iter = lines.iterator();
     while (iter.hasNext()) {
       writer.write(iter.next());
@@ -244,8 +244,8 @@ public class FileCommands {
     return fileData.toString();
   }
 
-  public static List<String> readFileLines(Path filePath) throws IOException {
-    BufferedReader reader = new BufferedReader(new FileReader(filePath.getFile()));
+  public static List<String> readFileLines(File file) throws IOException {
+    BufferedReader reader = new BufferedReader(new FileReader(file));
     List<String> lines = new ArrayList<>();
     String temp;
     while ((temp = reader.readLine()) != null) {
