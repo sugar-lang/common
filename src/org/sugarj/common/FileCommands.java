@@ -21,6 +21,7 @@ import java.nio.file.FileVisitor;
 import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Paths;
+import java.nio.file.SimpleFileVisitor;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.security.MessageDigest;
@@ -32,10 +33,7 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
-import java.util.function.Predicate;
 import java.util.jar.JarFile;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import java.util.zip.ZipEntry;
 
 import org.apache.commons.io.IOUtils;
@@ -182,19 +180,15 @@ public class FileCommands {
    * @param content
    * @throws IOException
    */
-  public static void writeToFile(Path file, String content) throws IOException {
+  public static void writeToFile(File file, String content) throws IOException {
     FileCommands.createFile(file);
-    FileOutputStream fos = new FileOutputStream(file.getFile());
+    FileOutputStream fos = new FileOutputStream(file);
     fos.write(content.getBytes());
     fos.close();
   }
 
   public static void writeToFile(java.nio.file.Path file, String content) throws IOException {
-    Files.write(file, Collections.singleton(content));
-  }
-
-  public static void writeToFile(File file, String content) throws IOException {
-    writeToFile(file.toPath(), content);
+    writeToFile(file.toFile(), content);
   }
 
   public static void writeLinesFile(File file, List<String> lines) throws IOException {
@@ -311,39 +305,29 @@ public class FileCommands {
     return paths;
   }
 
-  public static Stream<File> streamFiles(File dir, FileFilter filter) {
-    return streamFiles(dir).filter((File f) -> filter.accept(f));
-  }
-
-  @SuppressWarnings("resource")
-  public static Stream<File> streamFiles(File dir) {
-    Stream<java.nio.file.Path> files;
-    try {
-      files = Files.walk(dir.toPath());
-    } catch (IOException e) {
-      files = Stream.empty();
-    }
-    return files.map(java.nio.file.Path::toFile);
-  }
-
   public static List<java.nio.file.Path> listFilesRecursive(java.nio.file.Path p) {
     return listFilesRecursive(p, null);
   }
 
+  // Guarentees that list is mutable
   public static List<java.nio.file.Path> listFilesRecursive(java.nio.file.Path p, final FileFilter filter) {
-    // Guarentees that list is mutable
     try {
-      Predicate<java.nio.file.Path> isDir = Files::isDirectory;
-      final Stream<java.nio.file.Path> allFiles = Files.walk(p).filter(isDir.negate());
-      final Stream<java.nio.file.Path> filteredFiles;
-      if (filter == null) {
-        filteredFiles = allFiles;
-      } else {
-        filteredFiles = allFiles.filter((java.nio.file.Path x) -> filter.accept(x.toFile()));
-      }
-      List<java.nio.file.Path> paths = filteredFiles.collect(Collectors.toCollection(ArrayList::new));
-
-      return paths;
+      final List<java.nio.file.Path> files = new ArrayList<>();
+      
+      Files.walkFileTree(p, new SimpleFileVisitor<java.nio.file.Path>() {
+        @Override
+        public FileVisitResult visitFile(java.nio.file.Path file, BasicFileAttributes attrs) throws IOException {
+          if (!file.toFile().isDirectory())
+            return FileVisitResult.CONTINUE;
+          
+          if (filter == null || filter.accept(file.toFile()))
+            files.add(file);
+          
+          return FileVisitResult.CONTINUE;
+        }
+      });
+      
+      return Collections.unmodifiableList(files);
     } catch (IOException e) {
       return Collections.emptyList();
     }

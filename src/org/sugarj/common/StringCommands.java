@@ -1,6 +1,3 @@
-/**
- * 
- */
 package org.sugarj.common;
 
 import java.util.Collection;
