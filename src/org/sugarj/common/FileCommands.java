@@ -436,9 +436,9 @@ public class FileCommands {
     return p;
   }
 
-  public static void createDir(Path dir) throws IOException {
-    boolean isMade = dir.getFile().mkdirs();
-    boolean exists = dir.getFile().exists();
+  public static void createDir(File dir) throws IOException {
+    boolean isMade = dir.mkdirs();
+    boolean exists = dir.exists();
     if (!isMade && !exists)
       throw new IOException("Failed to create the directories\n" + dir);
   }
@@ -458,8 +458,8 @@ public class FileCommands {
    * @return
    * @throws IOException
    */
-  public static Path createDir(Path dir, int hash) throws IOException {
-    Path p = new RelativePath(dir, hashFileName("SugarJ", hash));
+  public static File createDir(File dir, int hash) throws IOException {
+    File p = new File(dir, hashFileName("SugarJ", hash));
     createDir(p);
     return p;
   }
