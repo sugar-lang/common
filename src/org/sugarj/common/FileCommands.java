@@ -317,7 +317,7 @@ public class FileCommands {
       Files.walkFileTree(p, new SimpleFileVisitor<java.nio.file.Path>() {
         @Override
         public FileVisitResult visitFile(java.nio.file.Path file, BasicFileAttributes attrs) throws IOException {
-          if (!file.toFile().isDirectory())
+          if (file.toFile().isDirectory())
             return FileVisitResult.CONTINUE;
           
           if (filter == null || filter.accept(file.toFile()))
