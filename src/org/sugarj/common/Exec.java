@@ -38,6 +38,9 @@ public class Exec {
   }
   
   public static synchronized void shutdown() {
+    if (ioThreadPool == null)
+      return;
+    
     ioThreadPool.shutdown();
     boolean terminated = false;
     try {
