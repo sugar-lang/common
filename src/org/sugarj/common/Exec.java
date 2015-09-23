@@ -14,6 +14,9 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.SynchronousQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
 import org.sugarj.common.util.ArrayUtils;
 
@@ -26,7 +29,29 @@ import org.sugarj.common.util.ArrayUtils;
  */
 public class Exec {
 
-  private static ExecutorService ioThreadPool = Executors.newCachedThreadPool();
+  private static ExecutorService ioThreadPool;
+  
+  private static synchronized ExecutorService ioThreadPool() {
+    if (ioThreadPool == null)
+      ioThreadPool = Executors.newCachedThreadPool();
+    return ioThreadPool;
+  }
+  
+  public static synchronized void shutdown() {
+    ioThreadPool.shutdown();
+    boolean terminated = false;
+    try {
+      terminated = ioThreadPool.awaitTermination(1000, TimeUnit.MILLISECONDS);
+    } catch (InterruptedException _) {
+    }
+
+    if (!terminated) {
+      Log.log.log("Executor did not terminate in the specified time.", Log.CORE);
+      List<Runnable> droppedTasks = ioThreadPool.shutdownNow();
+      Log.log.log("Executor was abruptly shut down. " + droppedTasks.size() + " tasks will not be executed.", Log.CORE);
+    }
+    ioThreadPool = null;
+  }
   
   /**
    * silences the main process
@@ -206,6 +231,7 @@ public class Exec {
       // the output, because the process will block if we don't
       // read from the streams
 
+      ExecutorService ioThreadPool = ioThreadPool();
       Future<List<String>> outFuture = ioThreadPool.submit(outStreamLogger);
       Future<List<String>> errFuture = ioThreadPool.submit(errStreamLogger);
 
