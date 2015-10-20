@@ -56,7 +56,7 @@ public class FileCommands {
   }
 
   public final static boolean DO_DELETE = true;
-
+  public final static String FORWARD_SLASH = "/";
   public final static String TMP_DIR;
   static {
     try {
@@ -797,7 +797,7 @@ public class FileCommands {
 
     // have we found the class file?
     try {
-      return Paths.get(path);
+      return Paths.get(trimFront(path));
     } catch (InvalidPathException e) {
       return null;
     }
@@ -832,5 +832,11 @@ public class FileCommands {
         }
       }
     }
+  }
+
+  public static String trimFront(String path) {
+    while (path.startsWith(FORWARD_SLASH))
+      path = path.substring(1, path.length());
+    return path;
   }
 }
