@@ -11,6 +11,8 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.ObjectInput;
+import java.io.ObjectOutput;
 import java.io.OutputStream;
 import java.net.URI;
 import java.net.URL;
@@ -29,9 +31,11 @@ import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Enumeration;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.jar.JarFile;
 import java.util.zip.ZipEntry;
@@ -469,13 +473,12 @@ public class FileCommands {
    */
   public static String toCygwinPath(String filepath) {
     // XXX hacky
-
+   
     if (System.getProperty("os.name").toLowerCase().contains("win")) {
       filepath = filepath.replace("\\", "/");
       filepath = filepath.replace("/C:/", "/cygdrive/C/");
       filepath = filepath.replace("C:/", "/cygdrive/C/");
     }
-
     return filepath;
   }
 
@@ -490,7 +493,6 @@ public class FileCommands {
       filepath = filepath.replace("/C:", "C:");
       filepath = filepath.replace("/", "\\");
     }
-
     return filepath;
   }
 
@@ -835,8 +837,10 @@ public class FileCommands {
   }
 
   public static String trimFront(String path) {
-    while (path.startsWith(FORWARD_SLASH))
-      path = path.substring(1, path.length());
+    if (System.getProperty("os.name").toLowerCase().contains("win")) {
+      while (path.startsWith(FORWARD_SLASH))
+        path = path.substring(1, path.length());
+    }
     return path;
   }
 }
