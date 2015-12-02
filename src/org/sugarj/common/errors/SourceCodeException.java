@@ -1,12 +1,10 @@
-/**
- * 
- */
 package org.sugarj.common.errors;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
+import org.sugarj.common.FileCommands;
 import org.sugarj.common.util.Pair;
 
 /**
@@ -37,5 +35,14 @@ public class SourceCodeException extends Exception {
 
   public List<Pair<SourceLocation, String>> getErrors() {
     return errors;
+  }
+  
+  @Override
+  public String getMessage() {
+    StringBuilder errMsg = new StringBuilder("The following errors occured during compilation:\n");
+    for (Pair<SourceLocation, String> error : getErrors()) {
+      errMsg.append(FileCommands.dropDirectory(error.a.file) + "(" + error.a.lineStart + ":" + error.a.columnStart + "): " + error.b);
+    }
+    return errMsg.toString();
   }
 }
