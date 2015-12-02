@@ -41,7 +41,7 @@ public class SourceCodeException extends Exception {
   public String getMessage() {
     StringBuilder errMsg = new StringBuilder("The following errors occured during compilation:\n");
     for (Pair<SourceLocation, String> error : getErrors()) {
-      errMsg.append(FileCommands.dropDirectory(error.a.file) + "(" + error.a.lineStart + ":" + error.a.columnStart + "): " + error.b);
+      errMsg.append(FileCommands.dropDirectory(error.a.file) + "(" + error.a.lineStart + ":" + error.a.columnStart + "): " + error.b + ". ");
     }
     return errMsg.toString();
   }
