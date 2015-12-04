@@ -309,7 +309,20 @@ public class FileCommands {
     return listFilesRecursive(p, null);
   }
 
+  public static List<File> listFilesRecursive(File f) {
+    return listFilesRecursive(f, null);
+  }
+
   // Guarentees that list is mutable
+  public static List<File> listFilesRecursive(File f, final FileFilter filter) {
+    List<java.nio.file.Path> paths = listFilesRecursive(f.toPath(), filter);
+    List<File> files = new ArrayList<>(paths.size());
+    for (java.nio.file.Path p : paths)
+      files.add(p.toFile());
+    return Collections.unmodifiableList(files);
+  }
+  
+  // Guarentees that list is immutable
   public static List<java.nio.file.Path> listFilesRecursive(java.nio.file.Path p, final FileFilter filter) {
     try {
       final List<java.nio.file.Path> files = new ArrayList<>();
