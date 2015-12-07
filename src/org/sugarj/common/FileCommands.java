@@ -36,6 +36,7 @@ import java.util.Set;
 import java.util.jar.JarFile;
 import java.util.zip.ZipEntry;
 
+import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.IOUtils;
 import org.sugarj.common.path.AbsolutePath;
 import org.sugarj.common.path.Path;
@@ -155,6 +156,10 @@ public class FileCommands {
     optSet.add(StandardCopyOption.REPLACE_EXISTING);
 
     Files.copy(from.toPath(), to.toPath(), optSet.toArray(new CopyOption[optSet.size()]));
+  }
+  
+  public static void copyDirectory(File from, File to) throws IOException {
+    FileUtils.copyDirectory(from, to);
   }
 
   public static void copyFile(InputStream in, OutputStream out) throws IOException {
