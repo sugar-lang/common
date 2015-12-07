@@ -82,9 +82,11 @@ public class Exec {
   public static class ExecutionResult implements Serializable {
     private static final long serialVersionUID = 3298797085346937563L;
     
+    public final String[] cmds;
     public final String[] outMsgs;
     public final String[] errMsgs;
-    public ExecutionResult(String[] outMsgs, String[] errMsgs) {
+    public ExecutionResult(String[] cmds, String[] outMsgs, String[] errMsgs) {
+      this.cmds = cmds;
       this.outMsgs = outMsgs;
       this.errMsgs = errMsgs;
     }
@@ -245,7 +247,7 @@ public class Exec {
         throw new ExecutionError("Command failed", cmds, outMsgs.toArray(new String[outMsgs.size()]), errMsgs.toArray(new String[errMsgs.size()]));
       }
       
-      return new ExecutionResult(outMsgs.toArray(new String[outMsgs.size()]), errMsgs.toArray(new String[errMsgs.size()]));
+      return new ExecutionResult(cmds, outMsgs.toArray(new String[outMsgs.size()]), errMsgs.toArray(new String[errMsgs.size()]));
     } catch (ExecutionError e) {
       throw e; 
     } catch (Throwable t) {
