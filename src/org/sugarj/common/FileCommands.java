@@ -792,6 +792,19 @@ public class FileCommands {
     return p.getAbsolutePath();
   }
 
+  public static java.nio.file.Path getRessourceContainer(Class<?> clazz) {
+    String className = clazz.getName();
+    URL url = clazz.getResource(className.substring(className.lastIndexOf(".") + 1) + ".class");
+    java.nio.file.Path p = getRessourcePath(url);
+    if (p == null || p.toFile().getName().endsWith(".jar"))
+      return p;
+    
+    int dirCount = className.length() - className.replace(".", "").length();
+    for (int i = 0; i <= dirCount; i++)
+      p = p.getParent();
+    return p;
+  }
+  
   public static java.nio.file.Path getRessourcePath(Class<?> clazz) {
     String className = clazz.getName();
     URL url = clazz.getResource(className.substring(className.lastIndexOf(".") + 1) + ".class");
