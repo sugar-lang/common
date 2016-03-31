@@ -148,7 +148,8 @@ public class Log {
     
     noLongerLeaf();
     indent();
-    err.println(text);
+    if (text != null && !text.isEmpty())
+      err.println(text);
     e.printStackTrace(err);
   }
   
