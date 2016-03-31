@@ -1,7 +1,7 @@
 Manifest-Version: 1.0
 Bundle-ManifestVersion: 2
 Bundle-Name: SugarJCommon
-Bundle-SymbolicName: org.sugarj.common
+Bundle-SymbolicName: org.sugarj.common.cleardep
 Bundle-Version: 1.2.0.qualifier
 Bundle-Activator: org.sugarj.common.Activator
 Require-Bundle: org.eclipse.ui,
