@@ -14,4 +14,17 @@
 	</parent>
 
 	<packaging>eclipse-plugin</packaging>
+
+	<repositories>
+		<repository>
+			<id>sugar-lang</id>
+			<url>http://sugar-lang.github.io/mvnrepository/</url>
+			<releases>
+				<enabled>true</enabled>
+			</releases>
+			<snapshots>
+				<enabled>true</enabled>
+			</snapshots>
+		</repository>
+	</repositories>
 </project>
