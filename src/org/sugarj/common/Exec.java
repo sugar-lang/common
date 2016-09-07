@@ -149,8 +149,8 @@ public class Exec {
       try {
         p.destroy();
 
-        List<String> outMsgs = outStreamLogger.peek();
-        List<String> errMsgs = errStreamLogger.peek();
+        List<String> outMsgs = outFuture.get();
+        List<String> errMsgs = errFuture.get();
 
         this.outMsgs = outMsgs.toArray(new String[outMsgs.size()]);
         this.errMsgs = errMsgs.toArray(new String[errMsgs.size()]);
