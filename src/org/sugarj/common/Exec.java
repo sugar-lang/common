@@ -122,6 +122,70 @@ public class Exec {
       return true;
     }
   }
+
+  public class NonBlockingExecutionResult {
+    public final Process p;
+    public final String prefix;
+    public final String[] cmds;
+    public String[] outMsgs;
+    public String[] errMsgs;
+
+    StreamRunner errStreamLogger;
+    StreamRunner outStreamLogger;
+    Future<List<String>> outFuture;
+    Future<List<String>> errFuture;
+
+    public NonBlockingExecutionResult(Process p, String[] cmds, String prefix) {
+      this.p = p;
+      this.cmds = cmds;
+      this.prefix = prefix;
+      errStreamLogger = new StreamRunner(p.getErrorStream(), "");
+      outStreamLogger = new StreamRunner(p.getInputStream(), "");
+      outFuture = ioThreadPool().submit(outStreamLogger);
+      errFuture = ioThreadPool().submit(errStreamLogger);
+    }
+
+    public void kill() {
+      try {
+        p.destroy();
+
+        List<String> outMsgs = outStreamLogger.peek();
+        List<String> errMsgs = errStreamLogger.peek();
+
+        this.outMsgs = outMsgs.toArray(new String[outMsgs.size()]);
+        this.errMsgs = errMsgs.toArray(new String[errMsgs.size()]);
+      } catch (ExecutionError e) {
+        throw e;
+      } catch (Throwable t) {
+        List<String> outMsgs = outStreamLogger == null ? new ArrayList<String>() : outStreamLogger.peek();
+        List<String> errMsgs = errStreamLogger == null ? new ArrayList<String>() : errStreamLogger.peek();
+
+        throw new ExecutionError("problems while executing " + prefix + ": " + t.getMessage(), cmds, outMsgs.toArray(new String[outMsgs.size()]), errMsgs.toArray(new String[errMsgs.size()]), t);
+      }
+    }
+
+    public void waitForExit() {
+      try {
+        int exitValue = p.waitFor();
+        List<String> outMsgs = outFuture.get();
+        List<String> errMsgs = errFuture.get();
+
+        if (exitValue != 0) {
+          throw new ExecutionError("Command failed", cmds, outMsgs.toArray(new String[outMsgs.size()]), errMsgs.toArray(new String[errMsgs.size()]));
+        }
+
+        this.outMsgs = outMsgs.toArray(new String[outMsgs.size()]);
+        this.errMsgs = errMsgs.toArray(new String[errMsgs.size()]);
+      } catch (ExecutionError e) {
+        throw e;
+      } catch (Throwable t) {
+        List<String> outMsgs = outStreamLogger == null ? new ArrayList<String>() : outStreamLogger.peek();
+        List<String> errMsgs = errStreamLogger == null ? new ArrayList<String>() : errStreamLogger.peek();
+
+        throw new ExecutionError("problems while executing " + prefix + ": " + t.getMessage(), cmds, outMsgs.toArray(new String[outMsgs.size()]), errMsgs.toArray(new String[errMsgs.size()]), t);
+      }
+    }
+  }
   
   public static class ExecutionError extends Error {
     private static final long serialVersionUID = -4924660269220590175L;
@@ -189,7 +253,7 @@ public class Exec {
     private final InputStream in;
     private String prefix;
 
-    private List<String> msg = new ArrayList<String>();
+    private List<String> msg = new ArrayList<>();
     
     public StreamRunner(InputStream in, String prefix) {
       this.in = in;
@@ -234,6 +298,10 @@ public class Exec {
   }
   public static ExecutionResult run(boolean silent, String... cmds) {
     return new Exec(silent).runWithPrefix(cmds[0], null, cmds);
+  }
+
+  public static NonBlockingExecutionResult runNonBlocking(String... cmds) {
+    return new Exec(true).runNonBlockingWithPrefix(cmds[0], null, cmds);
   }
 
   /**
@@ -322,5 +390,15 @@ public class Exec {
       throw new ExecutionError("problems while executing " + prefix + ": " + t.getMessage(), cmds, outMsgs.toArray(new String[outMsgs.size()]), errMsgs.toArray(new String[errMsgs.size()]), t);
     }
     
+  }
+
+  public NonBlockingExecutionResult runNonBlockingWithPrefix(String prefix, File dir, String... cmds) {
+    Runtime rt = Runtime.getRuntime();
+    try {
+      Process p = rt.exec(cmds, null, dir == null ? null : dir);
+      return new NonBlockingExecutionResult(p, cmds, prefix);
+    } catch (IOException e) {
+      throw new ExecutionError("problems while executing " + prefix + ": " + e.getMessage(), cmds, null, null, e);
+    }
   }
 }
