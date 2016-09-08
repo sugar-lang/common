@@ -185,6 +185,14 @@ public class Exec {
         throw new ExecutionError("problems while executing " + prefix + ": " + t.getMessage(), cmds, outMsgs.toArray(new String[outMsgs.size()]), errMsgs.toArray(new String[errMsgs.size()]), t);
       }
     }
+
+    public List<String> peekOutMsgs() {
+        return outStreamLogger.peek();
+    }
+
+    public List<String> peekErrMsgs() {
+        return errStreamLogger.peek();
+    }
   }
   
   public static class ExecutionError extends Error {
