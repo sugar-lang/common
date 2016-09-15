@@ -123,6 +123,9 @@ public class Exec {
     }
   }
 
+  /**
+   * Result of calling Exec.runNonBlocking(). The process will run in the background and can be either killed or waited for termination.
+   */
   public class NonBlockingExecutionResult {
     public final Process p;
     public final String prefix;
@@ -145,6 +148,9 @@ public class Exec {
       errFuture = ioThreadPool().submit(errStreamLogger);
     }
 
+    /**
+     * Kill the process and update the outMsgs and errMsgs.
+     */
     public void kill() {
       try {
         p.destroy();
@@ -164,6 +170,9 @@ public class Exec {
       }
     }
 
+    /**
+     * Wait for process termination and update outMsgs and errMsgs.
+     */
     public void waitForExit() {
       try {
         int exitValue = p.waitFor();
@@ -186,10 +195,18 @@ public class Exec {
       }
     }
 
+    /**
+     * Retrieve outMsgs while process is still running.
+     * @return the current outMsgs.
+     */
     public List<String> peekOutMsgs() {
         return outStreamLogger.peek();
     }
 
+    /**
+     * Retrieve errMsgs while process is still running.
+     * @return the current errMsgs.
+     */
     public List<String> peekErrMsgs() {
         return errStreamLogger.peek();
     }
@@ -400,6 +417,21 @@ public class Exec {
     
   }
 
+    /**
+     * Executes the given command in the background.
+     * <p>
+     * All paths given to this function have to be treated by
+     * {@link FileCommands#toCygwinPath} (if a cygwin program is to
+     * be executed) or {@link FileCommands#toWindowsPath} (if a
+     * native Windows program is to be executed) as appropriate.
+     *
+     * @param prefix
+     *        a short version of the command for logging purposes
+     * @param cmds
+     *        the executable and its argument to execute
+     * @throws ExecutionError
+     *         when something goes wrong
+     */
   public NonBlockingExecutionResult runNonBlockingWithPrefix(String prefix, File dir, String... cmds) {
     Runtime rt = Runtime.getRuntime();
     try {
