@@ -155,6 +155,16 @@ public class Exec {
       try {
         p.destroy();
 
+        boolean alive = false;
+        do {
+          try {
+            p.exitValue();
+            alive = false;
+          } catch(IllegalThreadStateException e) {
+            alive = true;
+          }
+        } while (alive);
+
         List<String> outMsgs = outFuture.get();
         List<String> errMsgs = errFuture.get();
 
@@ -203,12 +213,28 @@ public class Exec {
         return outStreamLogger.peek();
     }
 
+    public void clearOutMsgs() {
+      outStreamLogger.clear();
+    }
+
+    public List<String> popOutMsgs() {
+      return outStreamLogger.pop();
+    }
+
     /**
      * Retrieve errMsgs while process is still running.
      * @return the current errMsgs.
      */
     public List<String> peekErrMsgs() {
         return errStreamLogger.peek();
+    }
+
+    public void clearErrMsgs() {
+      errStreamLogger.clear();
+    }
+
+    public List<String> popErrMsgs() {
+      return errStreamLogger.pop();
     }
   }
   
@@ -304,6 +330,16 @@ public class Exec {
     public synchronized List<String> peek() {
       return msg;
     }
+
+    public synchronized void clear() {
+      msg = new ArrayList<>();
+    }
+
+    public synchronized List<String> pop() {
+      List<String> tmp = peek();
+      clear();
+      return tmp;
+    }
   }
   
   private boolean silent;
@@ -383,7 +419,7 @@ public class Exec {
 //        log.beginExecution(prefix, cmds);
 //      }
 
-      Process p = rt.exec(cmds, null, dir == null ? null : dir);
+      Process p = rt.exec(cmds, null, dir);
 
       errStreamLogger = new StreamRunner(p.getErrorStream(), "");
       outStreamLogger = new StreamRunner(p.getInputStream(), "");
@@ -435,7 +471,7 @@ public class Exec {
   public NonBlockingExecutionResult runNonBlockingWithPrefix(String prefix, File dir, String... cmds) {
     Runtime rt = Runtime.getRuntime();
     try {
-      Process p = rt.exec(cmds, null, dir == null ? null : dir);
+      Process p = rt.exec(cmds, null, dir);
       return new NonBlockingExecutionResult(p, cmds, prefix);
     } catch (IOException e) {
       throw new ExecutionError("problems while executing " + prefix + ": " + e.getMessage(), cmds, null, null, e);
