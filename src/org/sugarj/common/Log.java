@@ -1,7 +1,11 @@
 package org.sugarj.common;
 
+import org.fusesource.jansi.AnsiConsole;
+
 import java.io.PrintStream;
 import java.util.LinkedList;
+import static org.fusesource.jansi.Ansi.*;
+import static org.fusesource.jansi.Ansi.Color.*;
 
 public class Log {
   /**
@@ -32,6 +36,11 @@ public class Log {
   
   public static PrintStream out = System.out;
   public static PrintStream err = System.err;
+
+  private Log() {
+    // makes logging slower, but needed for windows...
+    // AnsiConsole.systemInstall();
+  }
   
   public synchronized void beginTask(String shortText, String longText, boolean inline, int tasklevel) {
     if (silent >= 0)
@@ -84,10 +93,10 @@ public class Log {
     if (lightweight.pop()) {
       out.println(" ... " + error + " - " + duration + "ms");
     } else if (doneMessage) {
-      log.log(shortText + " ... " + error + " - " + duration + "ms", Log.ALWAYS);
+      log.log(shortText + " ... " + error + " - " + duration + "ms", Log.ALWAYS, Color.MAGENTA);
     }
     else 
-      log.log(shortText + " ... " + error + " - " + duration + "ms", Log.ALWAYS);
+      log.log(shortText + " ... " + error + " - " + duration + "ms", Log.ALWAYS, Color.MAGENTA);
     
     return duration;
   }
@@ -114,8 +123,13 @@ public class Log {
   public void log(Object o, int msglevel) {
     log(o.toString(), msglevel);
   }
-  
+
+
   public synchronized void log(String text, int msglevel) {
+    log(text, msglevel, DEFAULT);
+  }
+  
+  public synchronized void log(String text, int msglevel, org.fusesource.jansi.Ansi.Color highlightColor) {
     if (silent >= 0)
       return;
     
@@ -124,7 +138,10 @@ public class Log {
     
     noLongerLeaf();
     indent();
-    out.println(text);
+    if (highlightColor != Color.DEFAULT)
+      out.println(ansi().fg(highlightColor).a(text).reset());
+    else
+      out.println(text);
   }
   
   public synchronized void logErr(String text, int msglevel) {
